@@ -11,7 +11,7 @@ import { useFilterStore } from './stores/filterStore';
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
   const { locations, addLocation, removeLocation } = useLocations();
-  const { routes, isLoading: isOptimizing, generateRoutes } = useOptimizeRoutes();
+  const { routes, isLoading: isOptimizing, generateRoutes, switchToSchedule } = useOptimizeRoutes();
 
   const {
     activeVehicles,
@@ -61,17 +61,28 @@ function App() {
   });
 
   const handleConfigSubmit = async (config: ConfigRequest) => {
-    if (!locations || locations.length === 0) {
+    if (!locations || locations.length === 0 || !activeSchedule) {
       return;
     }
 
     try {
-      await generateRoutes(config, locations);
+      await generateRoutes(config, locations, activeSchedule);
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to generate routes');
     }
   };
+
+  // Update effect to handle schedule switching
+  useEffect(() => {
+    if (activeSchedule && routes) {
+      const matchingRoute = routes.find(r => r.schedule_id === activeSchedule);
+      if (!matchingRoute) {
+        // If we don't have routes for this schedule yet, try to switch to it
+        switchToSchedule(activeSchedule);
+      }
+    }
+  }, [activeSchedule, routes]);
 
   return (
     <div className="h-screen w-screen relative">

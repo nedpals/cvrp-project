@@ -1,38 +1,49 @@
-import { useState } from 'react';
-import { mutate } from 'swr';
+import useSWR from 'swr';
 import { ConfigRequest, Location, RouteResponse } from '../types/models';
-import { optimizeRoutes } from '../services/api';
+import { optimizeRoutes, getOptimizeRoutesKey } from '../services/api';
 
 export function useOptimizeRoutes() {
-  const [routes, setRoutes] = useState<RouteResponse[] | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const routesCache = new Map<string, RouteResponse[]>();
+  const { data: routes, isLoading, mutate } = useSWR<RouteResponse[]>('/optimize', null);
 
-  const generateRoutes = async (config: ConfigRequest, locations: Location[]) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const result = await optimizeRoutes(config, locations);
-      setRoutes(result);
-      
-      // Update any cached data if needed
-      mutate('/optimize', result, false);
-      
-      return result;
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to optimize routes'));
-      throw err;
-    } finally {
-      setIsLoading(false);
+  const generateRoutes = async (config: ConfigRequest, locations: Location[], scheduleId: string) => {
+    const cacheKey = getOptimizeRoutesKey(config, scheduleId);
+    
+    // Check if we have this result cached
+    if (routesCache.has(cacheKey)) {
+      const cachedResult = routesCache.get(cacheKey)!;
+      await mutate(cachedResult);
+      return cachedResult;
     }
+
+    try {
+      const result = await optimizeRoutes(config, locations);
+      routesCache.set(cacheKey, result);
+      await mutate(result);
+      return result;
+    } catch (error) {
+      console.error('Failed to optimize routes:', error);
+      throw error;
+    }
+  };
+
+  const switchToSchedule = async (scheduleId: string) => {
+    // Find cached result for this schedule
+    const cacheEntry = Array.from(routesCache.entries()).find(([key]) => 
+      key.includes(`scheduleId=${scheduleId}`)
+    );
+
+    if (cacheEntry) {
+      await mutate(cacheEntry[1]);
+      return cacheEntry[1];
+    }
+    return null;
   };
 
   return {
     routes,
     isLoading,
-    error,
     generateRoutes,
-    clearRoutes: () => setRoutes(undefined)
+    switchToSchedule,
   };
 }

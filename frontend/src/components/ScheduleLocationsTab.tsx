@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ScheduleEntry, Location, FREQUENCY_PRESETS } from '../types/models';
 import LocationForm from './LocationForm';
 import Papa from 'papaparse';
+import { useFilterStore } from '../stores/filterStore';
+import { useOptimizeRoutes } from '../hooks/useOptimizeRoutes';
 
 interface ScheduleLocationsTabProps {
     schedules: ScheduleEntry[];
@@ -26,7 +28,21 @@ export default function ScheduleLocationsTab({
     onAddLocation,
     onRemoveLocation
 }: ScheduleLocationsTabProps) {
-    const [activeSchedule, setActiveSchedule] = useState<string>(schedules[0]?.id || '');
+    const { setActiveSchedule, activeSchedule } = useFilterStore();
+    const { switchToSchedule } = useOptimizeRoutes();
+
+    const handleScheduleToggle = async (scheduleId: string, isEnabled: boolean) => {
+        const updatedSchedules = schedules.map(schedule => 
+            schedule.id === scheduleId ? { ...schedule, enabled: isEnabled } : schedule
+        );
+        onUpdateSchedules(updatedSchedules);
+
+        if (isEnabled) {
+            setActiveSchedule(scheduleId);
+            await switchToSchedule(scheduleId);
+        }
+    };
+
     const [uploadError, setUploadError] = useState<string>();
 
     const addSchedule = () => {
@@ -119,7 +135,7 @@ export default function ScheduleLocationsTab({
                 {schedules.map((schedule) => (
                     <button
                         key={schedule.id}
-                        onClick={() => setActiveSchedule(schedule.id)}
+                        onClick={() => handleScheduleToggle(schedule.id, true)}
                         className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
                             activeSchedule === schedule.id
                                 ? 'bg-blue-100 text-blue-700 font-medium'

@@ -31,6 +31,10 @@ export const downloadConfigAsJson = (config: ConfigRequest) => {
   downloadAnchorNode.remove();
 };
 
+// Create a key generator for route optimization
+export const getOptimizeRoutesKey = (config: ConfigRequest, scheduleId: string) => 
+  `/optimize?config=${JSON.stringify(config)}&scheduleId=${scheduleId}`;
+
 // Mutations
 export const optimizeRoutes = async (
   config: ConfigRequest, 
