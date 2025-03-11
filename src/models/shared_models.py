@@ -50,6 +50,7 @@ class ScheduleEntry(BaseModel):
 
 class StopInfo(BaseModel):
     name: str
+    location_id: str
     coordinates: Tuple[float, float]
     wco_amount: float
     trip_number: int

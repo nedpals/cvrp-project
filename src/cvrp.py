@@ -355,6 +355,7 @@ class CVRP:
                 location_data = locations.get_by_id(stop.location_id)
                 stop_info = StopInfo(
                     name=stop.location_name,
+                    location_id=stop.location_id,
                     coordinates=stop.coordinates,
                     wco_amount=stop.amount_collected,
                     trip_number=stop.trip_number,

@@ -1,25 +1,21 @@
-import React from 'react';
 import { RouteResponse } from '../types/models';
+import { useFilterStore } from '../stores/filterStore';
 
 interface FilterControlsProps {
     routes?: RouteResponse[];
-    activeVehicles: Set<string>;
-    activeTrips: Set<number>;
-    onVehicleToggle: (vehicleId: string) => void;
-    onTripToggle: (tripNumber: number) => void;
-    onSelectAll: () => void;
-    onClearAll: () => void;
 }
 
-export default function FilterControls({
-    routes,
-    activeVehicles,
-    activeTrips,
-    onVehicleToggle,
-    onTripToggle,
-    onSelectAll,
-    onClearAll
-}: FilterControlsProps) {
+export default function FilterControls({ routes }: FilterControlsProps) {
+    const {
+        activeVehicles,
+        activeTrips,
+        toggleVehicle,
+        toggleTrip,
+        selectAll,
+        clearAll,
+        toggleAllTrips
+    } = useFilterStore();
+
     if (!routes) return null;
 
     const allTrips = new Set<number>();
@@ -41,13 +37,13 @@ export default function FilterControls({
                 <h3 className="font-semibold">Filters</h3>
                 <div className="space-x-2">
                     <button
-                        onClick={onSelectAll}
+                        onClick={() => selectAll(routes)}
                         className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
                     >
                         Select All
                     </button>
                     <button
-                        onClick={onClearAll}
+                        onClick={clearAll}
                         className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
                     >
                         Clear All
@@ -64,7 +60,7 @@ export default function FilterControls({
                             route.vehicle_routes.map(vr => (
                                 <button
                                     key={vr.vehicle_id}
-                                    onClick={() => onVehicleToggle(vr.vehicle_id)}
+                                    onClick={() => toggleVehicle(vr.vehicle_id)}
                                     className={`px-2 py-1 text-xs rounded border ${
                                         activeVehicles.has(vr.vehicle_id)
                                             ? 'border-gray-600 bg-gray-100'
@@ -85,20 +81,44 @@ export default function FilterControls({
                 {/* Trip filters */}
                 <div>
                     <h4 className="text-sm font-medium mb-1">Trips</h4>
-                    <div className="flex flex-wrap gap-2">
-                        {Array.from(allTrips).sort((a, b) => a - b).map(tripNum => (
-                            <button
-                                key={tripNum}
-                                onClick={() => onTripToggle(tripNum)}
-                                className={`px-2 py-1 text-xs rounded border ${
-                                    activeTrips.has(tripNum)
-                                        ? 'border-gray-600 bg-gray-100'
-                                        : 'border-gray-300 bg-white'
-                                }`}
-                            >
-                                Trip #{tripNum}
-                            </button>
-                        ))}
+                    <div className="space-y-2">
+                        {routes.map(route => {
+                            const routeTrips = new Set<number>();
+                            route.vehicle_routes.forEach(vr => {
+                                vr.stops.forEach(stop => routeTrips.add(stop.trip_number));
+                            });
+                            const allSelected = Array.from(routeTrips).every(trip => activeTrips.has(trip));
+                            
+                            return (
+                                <div key={route.schedule_id} className="space-y-2">
+                                    <button
+                                        onClick={() => toggleAllTrips(route)}
+                                        className={`text-xs px-2 py-1 rounded w-full ${
+                                            allSelected
+                                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {allSelected ? 'Clear All Trips' : 'Select All Trips'}
+                                    </button>
+                                    <div className="flex flex-wrap gap-2">
+                                        {Array.from(routeTrips).sort((a, b) => a - b).map(tripNum => (
+                                            <button
+                                                key={tripNum}
+                                                onClick={() => toggleTrip(tripNum)}
+                                                className={`px-2 py-1 text-xs rounded ${
+                                                    activeTrips.has(tripNum)
+                                                        ? 'bg-blue-500 text-white'
+                                                        : 'border border-gray-300 bg-white hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                Trip #{tripNum}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

@@ -18,10 +18,6 @@ function App() {
     activeTrips,
     activeSchedule,
     setActiveSchedule,
-    toggleVehicle,
-    toggleTrip,
-    selectAll,
-    clearAll,
     initializeFilters
   } = useFilterStore();
 
@@ -43,6 +39,27 @@ function App() {
     };
   }).filter(Boolean);
 
+  // Filter locations based on active trips
+  const activeLocations = locations?.filter(location => {
+    // If no vehicles or trips are selected, show all locations
+    if (activeVehicles.size === 0 || activeTrips.size === 0) return true;
+    
+    // Show all locations if no routes or no active schedule
+    if (!routes || !activeSchedule) return true;
+    
+    const currentRoute = routes.find(r => r.schedule_id === activeSchedule);
+    if (!currentRoute) return true;
+    
+    // Check if this location is part of any active vehicle and trip combination
+    return currentRoute.vehicle_routes.some(vr =>
+      activeVehicles.has(vr.vehicle_id) &&
+      vr.stops.some(stop => 
+        activeTrips.has(stop.trip_number) && 
+        stop.location_id === location.id
+      )
+    );
+  });
+
   const handleConfigSubmit = async (config: ConfigRequest) => {
     if (!locations || locations.length === 0) {
       return;
@@ -62,7 +79,7 @@ function App() {
       <div className="absolute inset-0 z-0">
         {visualConfig ? (
           <Map
-            locations={locations}
+            locations={activeLocations}
             depotLocation={mapCenter}
             center={mapCenter}
             routes={filteredRoutes?.filter((route): route is RouteResponse => route !== null)}
@@ -92,12 +109,6 @@ function App() {
         </div>
         <FilterControls
           routes={routes?.filter(r => r.schedule_id === activeSchedule)}
-          activeVehicles={activeVehicles}
-          activeTrips={activeTrips}
-          onVehicleToggle={toggleVehicle}
-          onTripToggle={toggleTrip}
-          onSelectAll={() => routes && selectAll(routes)}
-          onClearAll={clearAll}
         />
       </div>
 

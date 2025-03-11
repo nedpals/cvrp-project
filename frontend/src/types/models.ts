@@ -41,6 +41,7 @@ export interface ConfigRequest {
 
 export interface StopInfo {
     name: string;
+    location_id: string;
     coordinates: Coordinates;
     wco_amount: number;
     trip_number: number;

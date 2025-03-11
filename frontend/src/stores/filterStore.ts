@@ -11,6 +11,7 @@ interface FilterState {
   selectAll: (routes: RouteResponse[]) => void;
   clearAll: () => void;
   initializeFilters: (routes: RouteResponse[], currentSchedule: string | null) => void;
+  toggleAllTrips: (route: RouteResponse) => void;
 }
 
 export const useFilterStore = create<FilterState>((set) => ({
@@ -28,10 +29,15 @@ export const useFilterStore = create<FilterState>((set) => ({
   }),
 
   toggleTrip: (tripNumber) => set((state) => {
-    const next = new Set(state.activeTrips);
-    if (next.has(tripNumber)) next.delete(tripNumber);
-    else next.add(tripNumber);
-    return { activeTrips: next };
+    const next = new Set<number>();
+    // If clicking the same trip that's already selected, clear it
+    // Otherwise, select only this trip
+    if (state.activeTrips.size === 1 && state.activeTrips.has(tripNumber)) {
+      return { activeTrips: next };
+    } else {
+      next.add(tripNumber);
+      return { activeTrips: next };
+    }
   }),
 
   selectAll: (routes) => set(() => {
@@ -71,5 +77,21 @@ export const useFilterStore = create<FilterState>((set) => ({
       activeTrips: trips,
       activeSchedule: scheduleId
     };
-  })
+  }),
+
+  toggleAllTrips: (route) => set((state) => {
+    const allTripNumbers = new Set<number>();
+    route.vehicle_routes.forEach(vr => {
+      vr.stops.forEach(stop => allTripNumbers.add(stop.trip_number));
+    });
+
+    // If all trips are currently selected, clear them
+    // Otherwise, select all trips
+    if (state.activeTrips.size === Array.from(allTripNumbers).length &&
+        Array.from(allTripNumbers).every(trip => state.activeTrips.has(trip))) {
+      return { activeTrips: new Set() };
+    } else {
+      return { activeTrips: allTripNumbers };
+    }
+  }),
 }));

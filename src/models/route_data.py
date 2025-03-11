@@ -6,6 +6,7 @@ from datetime import datetime
 class StopInfo:
     """Information about a single stop in a route"""
     name: str
+    location_id: str
     coordinates: Tuple[float, float]
     wco_amount: float
     trip_number: int
