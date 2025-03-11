@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { ConfigRequest, SolverInfo, Location } from '../types/models';
-import TabCard from './TabCard';
 import ScheduleLocationsTab from './ScheduleLocationsTab';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVehicles } from '../hooks/useVehicles';
@@ -30,7 +29,6 @@ export default function ConfigForm({
     const { schedules, setSchedules } = useSchedules();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [configError, setConfigError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState('locations');
 
     const {
         depotLat,
@@ -127,129 +125,10 @@ export default function ConfigForm({
         removeOneWayRoad(index);
     };
 
-    const tabs = [
-        {
-            id: 'locations',
-            label: 'Locations',
-            content: (
-                <ScheduleLocationsTab
-                    schedules={schedules}
-                    locations={locations}
-                    onUpdateSchedules={setSchedules}
-                    onAddLocation={onAddLocation}
-                    onRemoveLocation={onRemoveLocation}
-                />
-            )
-        },
-        {
-            id: 'vehicles',
-            label: 'Vehicles',
-            content: (
-                <div className="space-y-2">
-                    {vehicles.map((vehicle, index) => (
-                        <div key={vehicle.id} className="flex gap-2 items-center">
-                            <input
-                                type="text"
-                                value={vehicle.id}
-                                onChange={(e) => updateVehicle(index, 'id', e.target.value)}
-                                placeholder="ID"
-                                className="border p-1.5 rounded bg-white/80 flex-1 text-sm"
-                            />
-                            <input
-                                type="number"
-                                value={vehicle.capacity}
-                                onChange={(e) => updateVehicle(index, 'capacity', parseInt(e.target.value))}
-                                placeholder="Capacity"
-                                className="border p-1.5 rounded bg-white/80 w-20 text-sm"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => removeVehicle(index)}
-                                className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={addVehicle}
-                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
-                    >
-                        Add Vehicle
-                    </button>
-                </div>
-            )
-        },
-        {
-            id: 'one-way-roads',
-            label: 'One-Way Roads',
-            content: (
-                <div className="space-y-2">
-                    {oneWayRoads.map((road, roadIndex) => (
-                        <div key={roadIndex} className="p-2 border rounded bg-white/80">
-                            <div className="flex gap-2 items-center mb-2">
-                                <span className="text-xs font-medium">From</span>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[0][0]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 0, e.target.value)}
-                                    placeholder="Lat"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[0][1]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 1, e.target.value)}
-                                    placeholder="Lng"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                            </div>
-                            <div className="flex gap-2 items-center">
-                                <span className="text-xs font-medium">To</span>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[1][0]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 0, e.target.value)}
-                                    placeholder="Lat"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[1][1]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 1, e.target.value)}
-                                    placeholder="Lng"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveOneWayRoad(roadIndex)}
-                                    className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none ml-auto"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={handleAddOneWayRoad}
-                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
-                    >
-                        Add One-Way Road
-                    </button>
-                </div>
-            )
-        }
-    ];
-
     return (
-        <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
+        <div className="space-y-3">
+            {/* Route Configuration Card */}
+            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
                 <div className="flex flex-col space-y-2">
                     <div className="flex justify-between items-center">
                         <h2 className="text-base font-semibold text-gray-800">Route Configuration</h2>
@@ -336,13 +215,121 @@ export default function ConfigForm({
                         {isLoading ? 'Calculating...' : 'Generate Routes'}
                     </button>
                 </div>
+            </form>
+
+            {/* Vehicles Card */}
+            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
+                <h2 className="text-base font-semibold text-gray-800 mb-2">Vehicles</h2>
+                <div className="space-y-2">
+                    {vehicles.map((vehicle, index) => (
+                        <div key={vehicle.id} className="flex gap-2 items-center">
+                            <input
+                                type="text"
+                                value={vehicle.id}
+                                onChange={(e) => updateVehicle(index, 'id', e.target.value)}
+                                placeholder="ID"
+                                className="border p-1.5 rounded bg-white/80 flex-1 text-sm"
+                            />
+                            <input
+                                type="number"
+                                value={vehicle.capacity}
+                                onChange={(e) => updateVehicle(index, 'capacity', parseInt(e.target.value))}
+                                placeholder="Capacity"
+                                className="border p-1.5 rounded bg-white/80 w-20 text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeVehicle(index)}
+                                className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addVehicle}
+                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
+                    >
+                        Add Vehicle
+                    </button>
+                </div>
             </div>
 
-            <TabCard
-                tabs={tabs}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-            />
-        </form>
+            {/* One-Way Roads Card */}
+            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
+                <h2 className="text-base font-semibold text-gray-800 mb-2">One-Way Roads</h2>
+                <div className="space-y-2">
+                    {oneWayRoads.map((road, roadIndex) => (
+                        <div key={roadIndex} className="p-2 border rounded bg-white/80">
+                            <div className="flex gap-2 items-center mb-2">
+                                <span className="text-xs font-medium">From</span>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[0][0]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 0, e.target.value)}
+                                    placeholder="Lat"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[0][1]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 1, e.target.value)}
+                                    placeholder="Lng"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-xs font-medium">To</span>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[1][0]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 0, e.target.value)}
+                                    placeholder="Lat"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[1][1]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 1, e.target.value)}
+                                    placeholder="Lng"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveOneWayRoad(roadIndex)}
+                                    className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none ml-auto"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={handleAddOneWayRoad}
+                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
+                    >
+                        Add One-Way Road
+                    </button>
+                </div>
+            </div>
+
+            {/* Locations/Schedules Card */}
+            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
+                <p className="text-base font-semibold text-gray-800 mb-2">Locations & Schedules</p>
+                <ScheduleLocationsTab
+                    schedules={schedules}
+                    locations={locations}
+                    onUpdateSchedules={setSchedules}
+                    onAddLocation={onAddLocation}
+                    onRemoveLocation={onRemoveLocation}
+                />
+            </div>
+        </div>
     );
 }
