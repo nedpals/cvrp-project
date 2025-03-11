@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { ConfigRequest, SolverInfo, Location, Coordinates } from '../types/models';
+import { ConfigRequest, SolverInfo, Location } from '../types/models';
 import TabCard from './TabCard';
 import ScheduleLocationsTab from './ScheduleLocationsTab';
 import { useSchedules } from '../hooks/useSchedules';
 import { useVehicles } from '../hooks/useVehicles';
 import { downloadConfigAsJson } from '../services/api';
+import { useConfigStore } from '../stores/configStore';
 
 interface ConfigFormProps {
     onSubmit: (config: ConfigRequest) => void;
@@ -28,13 +29,21 @@ export default function ConfigForm({
     const { vehicles, addVehicle, removeVehicle, updateVehicle, setVehicles } = useVehicles();
     const { schedules, setSchedules } = useSchedules();
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const [depotLat, setDepotLat] = useState('7.06427');
-    const [depotLng, setDepotLng] = useState('125.60566');
-    const [solver, setSolver] = useState(defaultSolver || 'schedule');
-    const [activeTab, setActiveTab] = useState('locations');
     const [configError, setConfigError] = useState<string | null>(null);
-    const [oneWayRoads, setOneWayRoads] = useState<Coordinates[][]>([]);
+    const [activeTab, setActiveTab] = useState('locations');
+
+    const {
+        depotLat,
+        depotLng,
+        solver,
+        oneWayRoads,
+        setDepotLat,
+        setDepotLng,
+        setSolver,
+        addOneWayRoad,
+        updateOneWayRoad,
+        removeOneWayRoad,
+    } = useConfigStore();
 
     useEffect(() => {
         if (defaultSolver && defaultSolver !== solver) {
@@ -107,17 +116,15 @@ export default function ConfigForm({
     };
 
     const handleAddOneWayRoad = () => {
-        setOneWayRoads([...oneWayRoads, [[0, 0], [0, 0]]]);
+        addOneWayRoad();
     };
 
     const handleUpdateOneWayRoad = (index: number, pointIndex: number, coordIndex: number, value: string) => {
-        const newRoads = [...oneWayRoads];
-        newRoads[index][pointIndex][coordIndex] = parseFloat(value);
-        setOneWayRoads(newRoads);
+        updateOneWayRoad(index, pointIndex, coordIndex, value);
     };
 
     const handleRemoveOneWayRoad = (index: number) => {
-        setOneWayRoads(oneWayRoads.filter((_, i) => i !== index));
+        removeOneWayRoad(index);
     };
 
     const tabs = [

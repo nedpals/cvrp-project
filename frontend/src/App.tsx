@@ -5,82 +5,32 @@ import { useConfig } from './hooks/useConfig';
 import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
 import { ConfigRequest, RouteResponse } from './types/models';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useFilterStore } from './stores/filterStore';
 
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
   const { locations, addLocation, removeLocation } = useLocations();
   const { routes, isLoading: isOptimizing, generateRoutes } = useOptimizeRoutes();
 
-  const [activeVehicles, setActiveVehicles] = useState<Set<string>>(new Set());
-  const [activeTrips, setActiveTrips] = useState<Set<number>>(new Set());
-  const [activeSchedule, setActiveSchedule] = useState<string | null>(null);
+  const {
+    activeVehicles,
+    activeTrips,
+    activeSchedule,
+    setActiveSchedule,
+    toggleVehicle,
+    toggleTrip,
+    selectAll,
+    clearAll,
+    initializeFilters
+  } = useFilterStore();
 
   // Initialize filters when routes change
   useEffect(() => {
     if (routes) {
-      const vehicles = new Set<string>();
-      const trips = new Set<number>();
-      
-      if (routes.length > 0 && !activeSchedule) {
-        setActiveSchedule(routes[0].schedule_id);
-      }
-
-      routes.forEach(route => {
-        if (activeSchedule === route.schedule_id) {
-          route.vehicle_routes.forEach(vr => {
-            vehicles.add(vr.vehicle_id);
-            vr.stops.forEach(stop => trips.add(stop.trip_number));
-          });
-        }
-      });
-      
-      setActiveVehicles(vehicles);
-      setActiveTrips(trips);
+      initializeFilters(routes, activeSchedule);
     }
   }, [routes, activeSchedule]);
-
-  const handleVehicleToggle = (vehicleId: string) => {
-    setActiveVehicles(prev => {
-      const next = new Set(prev);
-      if (next.has(vehicleId)) next.delete(vehicleId);
-      else next.add(vehicleId);
-      return next;
-    });
-  };
-
-  const handleTripToggle = (tripNumber: number) => {
-    setActiveTrips(prev => {
-      const next = new Set(prev);
-      if (next.has(tripNumber)) next.delete(tripNumber);
-      else next.add(tripNumber);
-      return next;
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (routes) {
-      const vehicles = new Set<string>();
-      const trips = new Set<number>();
-      routes.forEach(route => {
-        route.vehicle_routes.forEach(vr => {
-          vehicles.add(vr.vehicle_id);
-          vr.stops.forEach(stop => trips.add(stop.trip_number));
-        });
-      });
-      setActiveVehicles(vehicles);
-      setActiveTrips(trips);
-    }
-  };
-
-  const handleClearAll = () => {
-    setActiveVehicles(new Set());
-    setActiveTrips(new Set());
-  };
-
-  const handleScheduleChange = (scheduleId: string) => {
-    setActiveSchedule(scheduleId);
-  };
 
   const filteredRoutes = routes?.map(route => {
     if (activeSchedule && route.schedule_id !== activeSchedule) return null;
@@ -130,7 +80,7 @@ function App() {
         <div className="bg-white p-2 rounded shadow">
           <select
             value={activeSchedule || ''}
-            onChange={(e) => handleScheduleChange(e.target.value)}
+            onChange={(e) => setActiveSchedule(e.target.value)}
             className="w-full p-1 text-sm border rounded"
           >
             {routes?.map((route) => (
@@ -144,10 +94,10 @@ function App() {
           routes={routes?.filter(r => r.schedule_id === activeSchedule)}
           activeVehicles={activeVehicles}
           activeTrips={activeTrips}
-          onVehicleToggle={handleVehicleToggle}
-          onTripToggle={handleTripToggle}
-          onSelectAll={handleSelectAll}
-          onClearAll={handleClearAll}
+          onVehicleToggle={toggleVehicle}
+          onTripToggle={toggleTrip}
+          onSelectAll={() => routes && selectAll(routes)}
+          onClearAll={clearAll}
         />
       </div>
 
