@@ -126,7 +126,7 @@ export default function ConfigForm({
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3 h-full flex flex-col">
             {/* Route Configuration Card */}
             <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
                 <div className="flex flex-col space-y-2">
@@ -320,7 +320,7 @@ export default function ConfigForm({
             </div>
 
             {/* Locations/Schedules Card */}
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
+            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg flex-1">
                 <p className="text-base font-semibold text-gray-800 mb-2">Locations & Schedules</p>
                 <ScheduleLocationsTab
                     schedules={schedules}

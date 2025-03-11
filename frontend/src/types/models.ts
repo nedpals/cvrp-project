@@ -76,6 +76,8 @@ export interface RouteResponse {
     schedule_id: string;
     schedule_name: string;
     date_generated: string;
+    total_stops: number;
+    total_trips: number;
     total_locations: number;
     total_vehicles: number;
     total_distance: number;

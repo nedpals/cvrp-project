@@ -101,6 +101,8 @@ class RouteResponse(BaseModel):
     schedule_id: str
     schedule_name: str
     date_generated: datetime
+    total_stops: int
+    total_trips: int
     total_locations: int
     total_vehicles: int
     total_distance: float

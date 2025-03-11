@@ -1,12 +1,12 @@
 import ConfigForm from './components/ConfigForm';
 import Map from './components/Map';
-import FilterControls from './components/FilterControls';
 import { useConfig } from './hooks/useConfig';
 import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
 import { ConfigRequest, RouteResponse } from './types/models';
 import { useEffect } from 'react';
 import { useFilterStore } from './stores/filterStore';
+import ResultsCard from './components/ResultsCard';
 
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
@@ -17,7 +17,6 @@ function App() {
     activeVehicles,
     activeTrips,
     activeSchedule,
-    setActiveSchedule,
     initializeFilters
   } = useFilterStore();
 
@@ -103,28 +102,14 @@ function App() {
         )}
       </div>
 
-      {/* Filter Controls */}
-      <div className="absolute top-4 left-4 z-[1000] space-y-2">
-        <div className="bg-white p-2 rounded shadow">
-          <select
-            value={activeSchedule || ''}
-            onChange={(e) => setActiveSchedule(e.target.value)}
-            className="w-full p-1 text-sm border rounded"
-          >
-            {routes?.map((route) => (
-              <option key={route.schedule_id} value={route.schedule_id}>
-                {route.schedule_name}
-              </option>
-            ))}
-          </select>
+      {/* Right Side - Configuration and Results */}
+      <div className="absolute top-4 right-0 pr-4 pb-4 h-full z-[1000] flex gap-3">
+        {/* Results Card */}
+        <div className="w-80 pointer-events-auto">
+          <ResultsCard routes={routes ?? []} />
         </div>
-        <FilterControls
-          routes={routes?.filter(r => r.schedule_id === activeSchedule)}
-        />
-      </div>
 
-      {/* Floating UI elements */}
-      <div className="absolute top-4 right-4 z-[1000] pointer-events-none">
+        {/* Config Cards */}
         <div className="w-80 space-y-3 pointer-events-auto">
           <ConfigForm 
             onSubmit={handleConfigSubmit} 
@@ -135,24 +120,6 @@ function App() {
             onRemoveLocation={removeLocation}
             isLoading={isOptimizing}
           />
-          
-          {routes && (
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-              <h2 className="text-base font-semibold mb-2 border-b pb-1">Results</h2>
-              <div className="space-y-3">
-                {routes.map((route) => (
-                  <div key={route.schedule_id} className="p-2 bg-blue-50/70 rounded-md">
-                    <h3 className="font-medium text-sm text-blue-800">{route.schedule_name}</h3>
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-1 text-gray-700">
-                      <div>Distance:</div><div className="font-medium">{route.total_distance.toFixed(2)} km</div>
-                      <div>Collected:</div><div className="font-medium">{route.total_collected.toFixed(2)} L</div>
-                      <div>Vehicles:</div><div className="font-medium">{route.vehicle_routes.length}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
