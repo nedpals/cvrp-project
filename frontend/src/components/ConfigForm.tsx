@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ConfigRequest, SolverInfo, Location } from '../types/models';
+import { ConfigRequest, SolverInfo, Location, Coordinates } from '../types/models';
 import TabCard from './TabCard';
 import ScheduleLocationsTab from './ScheduleLocationsTab';
 import { useSchedules } from '../hooks/useSchedules';
@@ -34,6 +34,7 @@ export default function ConfigForm({
     const [solver, setSolver] = useState(defaultSolver || 'schedule');
     const [activeTab, setActiveTab] = useState('locations');
     const [configError, setConfigError] = useState<string | null>(null);
+    const [oneWayRoads, setOneWayRoads] = useState<Coordinates[][]>([]);
 
     useEffect(() => {
         if (defaultSolver && defaultSolver !== solver) {
@@ -51,7 +52,7 @@ export default function ConfigForm({
             depot_location: [parseFloat(depotLat), parseFloat(depotLng)],
             vehicles,
             schedules,
-            one_way_roads: [],
+            one_way_roads: oneWayRoads,
             solver,
             allow_multiple_trips: true
         };
@@ -105,6 +106,20 @@ export default function ConfigForm({
         downloadConfigAsJson(getCurrentConfig());
     };
 
+    const handleAddOneWayRoad = () => {
+        setOneWayRoads([...oneWayRoads, [[0, 0], [0, 0]]]);
+    };
+
+    const handleUpdateOneWayRoad = (index: number, pointIndex: number, coordIndex: number, value: string) => {
+        const newRoads = [...oneWayRoads];
+        newRoads[index][pointIndex][coordIndex] = parseFloat(value);
+        setOneWayRoads(newRoads);
+    };
+
+    const handleRemoveOneWayRoad = (index: number) => {
+        setOneWayRoads(oneWayRoads.filter((_, i) => i !== index));
+    };
+
     const tabs = [
         {
             id: 'locations',
@@ -155,6 +170,70 @@ export default function ConfigForm({
                         className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
                     >
                         Add Vehicle
+                    </button>
+                </div>
+            )
+        },
+        {
+            id: 'one-way-roads',
+            label: 'One-Way Roads',
+            content: (
+                <div className="space-y-2">
+                    {oneWayRoads.map((road, roadIndex) => (
+                        <div key={roadIndex} className="p-2 border rounded bg-white/80">
+                            <div className="flex gap-2 items-center mb-2">
+                                <span className="text-xs font-medium">From</span>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[0][0]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 0, e.target.value)}
+                                    placeholder="Lat"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[0][1]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 1, e.target.value)}
+                                    placeholder="Lng"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-xs font-medium">To</span>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[1][0]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 0, e.target.value)}
+                                    placeholder="Lat"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={road[1][1]}
+                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 1, e.target.value)}
+                                    placeholder="Lng"
+                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveOneWayRoad(roadIndex)}
+                                    className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none ml-auto"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={handleAddOneWayRoad}
+                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
+                    >
+                        Add One-Way Road
                     </button>
                 </div>
             )
