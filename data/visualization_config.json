@@ -1,0 +1,11 @@
+{
+    "map": {
+        "center": [7.06427, 125.60566],
+        "zoom_level": 13,
+        "path_weight": 2,
+        "path_opacity": 0.8
+    },
+    "solver": {
+        "default": "schedule"
+    }
+}

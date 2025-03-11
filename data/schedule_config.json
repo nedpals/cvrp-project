@@ -1,0 +1,43 @@
+{
+    "schedules": [
+        {
+            "id": "4_days",
+            "name": "4 Days Schedule",
+            "file": "test_input_4days.csv",
+            "description": "Locations requiring collection every 4 days",
+            "color": "red",
+            "frequency": 4
+        },
+        {
+            "id": "weekly",
+            "name": "Weekly Schedule",
+            "file": "test_input_weekly.csv",
+            "description": "Locations requiring weekly collection",
+            "color": "blue",
+            "frequency": 7
+        },
+        {
+            "id": "2_weeks",
+            "name": "2 Weeks Schedule",
+            "file": "test_input_2weeks.csv",
+            "description": "Locations requiring collection every 2 weeks",
+            "color": "green",
+            "frequency": 14
+        }
+    ],
+    "vehicles": [
+        {
+            "id": "vehicle_1",
+            "capacity": 2000
+        }
+    ],
+    "depot_location": [7.099907716684531, 125.58941003079195],
+    "one_way_roads": [
+        [[7.0698796, 125.6069442], [7.0700608, 125.6062942]]
+    ],
+    "visualization": {
+        "zoom_level": 13,
+        "path_weight": 2,
+        "path_opacity": 0.8
+    }
+}
