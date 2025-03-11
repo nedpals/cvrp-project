@@ -60,6 +60,13 @@ export interface RoadPath {
     path: Coordinates[];
 }
 
+export interface RoutePathInfo {
+    from_coords: [number, number];
+    to_coords: [number, number];
+    path: [number, number][];
+    trip_number: number;
+}
+
 export interface VehicleRouteInfo {
     vehicle_id: string;
     capacity: number;
@@ -70,6 +77,8 @@ export interface VehicleRouteInfo {
     efficiency: number;
     stops: StopInfo[];
     road_paths: RoadPath[];
+    combined_path: RoutePathInfo[];
+    trip_paths: { [key: number]: RoutePathInfo[] };
 }
 
 export interface RouteResponse {

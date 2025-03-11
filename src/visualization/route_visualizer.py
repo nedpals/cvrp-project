@@ -2,7 +2,7 @@ import folium
 import openrouteservice as ors
 from openrouteservice.directions import directions
 from typing import List, Tuple, Dict, Any
-from models.route_data import RouteAnalysisResult
+from models.route_data import RouteAnalysisResult, RoutePathInfo, StopInfo
 import os
 from folium import plugins
 
@@ -59,6 +59,56 @@ class RouteVisualizer:
 
     def add_routes(self, analysis: RouteAnalysisResult):
         """Add routes to the map with enhanced information display."""
+        for vehicle_route_idx, route_info in enumerate(analysis.vehicle_routes):
+            color = self.colors[vehicle_route_idx % len(self.colors)]
+            stops = route_info.stops
+            
+            # Create combined route paths
+            combined_paths: List[RoutePathInfo] = []
+            trip_paths: Dict[int, List[RoutePathInfo]] = {}
+            
+            # Group stops by trip
+            trip_stops: Dict[int, List[StopInfo]] = {}
+            for stop in stops:
+                if stop.trip_number not in trip_stops:
+                    trip_stops[stop.trip_number] = []
+                trip_stops[stop.trip_number].append(stop)
+            
+            # Process each trip separately
+            for trip_number, trip_stop_list in trip_stops.items():
+                trip_paths[trip_number] = []
+                
+                # Add depot to start of trip
+                route_coords = [self.center] + [stop.coordinates for stop in trip_stop_list] + [self.center]
+                
+                # Generate paths for this trip
+                for i in range(len(route_coords) - 1):
+                    road_coords = self._get_route_coordinates(route_coords[i], route_coords[i + 1])
+                    path_coords = [[coord[1], coord[0]] for coord in road_coords]
+                    
+                    path_info = RoutePathInfo(
+                        from_coords=route_coords[i],
+                        to_coords=route_coords[i + 1],
+                        path=path_coords,
+                        trip_number=trip_number
+                    )
+                    
+                    trip_paths[trip_number].append(path_info)
+                    combined_paths.append(path_info)
+                    
+                    # Add to map visualization
+                    folium.PolyLine(
+                        locations=path_coords,
+                        color=color,
+                        weight=2,
+                        opacity=0.8,
+                        popup=f'Vehicle {route_info.vehicle_id} - Trip {trip_number}'
+                    ).add_to(self.map)
+            
+            # Store paths in route info
+            route_info.combined_path = combined_paths
+            route_info.trip_paths = trip_paths
+
         # Initialize computed paths for this analysis
         self.computed_paths[analysis.schedule_id] = {}
         

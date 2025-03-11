@@ -1,8 +1,9 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.awesome-markers/dist/leaflet.awesome-markers.css';
 import { Location, RouteResponse, Coordinates, StopInfo, VehicleRouteInfo } from '../types/models';
 import { createDepotMarker, createLocationMarker } from '../utils/mapIcons';
+import RoutePathLayer from './RoutePathLayer';
 
 interface MapConfig {
     zoom_level: number;
@@ -130,35 +131,16 @@ export default function Map({ locations, center, depotLocation, routes, config }
                 );
             })}
 
-            {/* Route Lines */}
-            {routes?.map((route) => {
-                return route.vehicle_routes.map((vr, idx) => {
-                    const color = getVehicleColor(idx);
-                    
-                    if (vr.road_paths && vr.road_paths.length > 0) {
-                        return vr.road_paths.map((path, pathIdx) => (
-                            <Polyline
-                                key={`${route.schedule_id}-${vr.vehicle_id}-path-${pathIdx}`}
-                                positions={path.path}
-                                color={color}
-                                weight={config.path_weight}
-                                opacity={config.path_opacity}
-                            />
-                        ));
-                    }
-                    
-                    const coordinates = vr.stops.map(stop => stop.coordinates);
-                    return (
-                        <Polyline
-                            key={`${route.schedule_id}-${vr.vehicle_id}`}
-                            positions={[depotLocation, ...coordinates, depotLocation]}
-                            color={color}
-                            weight={config.path_weight}
-                            opacity={config.path_opacity}
-                        />
-                    );
-                });
-            })}
+            {/* Route Paths */}
+            {routes?.map(route => 
+                route.vehicle_routes.map((vr, idx) => (
+                    <RoutePathLayer
+                        key={`${route.schedule_id}-${vr.vehicle_id}`}
+                        vehicleRoute={vr}
+                        color={getVehicleColor(idx)}
+                    />
+                ))
+            )}
         </MapContainer>
     );
 }

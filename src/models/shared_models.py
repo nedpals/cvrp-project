@@ -96,6 +96,7 @@ class VehicleRouteResponse(BaseModel):
     efficiency: float
     stops: List[StopResponse]
     road_paths: List[Dict[str, Any]] = []
+    trip_paths: Dict[int, List[Dict[str, Any]]] = {}
 
 class RouteResponse(BaseModel):
     schedule_id: str

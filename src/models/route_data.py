@@ -18,6 +18,14 @@ class StopInfo:
     sequence_number: int
 
 @dataclass
+class RoutePathInfo:
+    """Information about a path segment"""
+    from_coords: Tuple[float, float]
+    to_coords: Tuple[float, float]
+    path: List[List[float]]
+    trip_number: int = 0  # 0 for combined paths
+
+@dataclass
 class VehicleRouteInfo:
     """Information about a vehicle's complete route"""
     vehicle_id: str
@@ -29,6 +37,8 @@ class VehicleRouteInfo:
     efficiency: float
     stops: List[StopInfo]
     road_paths: List[Dict[str, Any]] = field(default_factory=list)
+    combined_path: List[RoutePathInfo] = field(default_factory=list)
+    trip_paths: Dict[int, List[RoutePathInfo]] = field(default_factory=dict)
 
 @dataclass
 class RouteAnalysisResult:
