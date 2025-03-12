@@ -5,6 +5,7 @@ from models.location_registry import LocationRegistry
 from models.trip_collection import TripCollection
 from utils import calculate_distance
 import numpy as np
+from clustering.geographic_clusterer import GeographicClusterer
 
 class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
@@ -13,6 +14,7 @@ class CollectionScheduler:
         self.locations = locations
         self.frequency_map = self._build_frequency_map(schedules)
         self.MAX_COLLECTION_TIME = 7  # minutes per establishment
+        self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
         
         # Calculate max simulation days needed based on schedules
         max_freq = max(self.frequency_map.values())
@@ -21,6 +23,7 @@ class CollectionScheduler:
         
         self.schedule_map = self._build_schedule_map()
         self.daily_visited_locations = {}
+        self.clusterer = GeographicClusterer()
     
     def _build_frequency_map(self, schedules: Iterable[ScheduleEntry]) -> dict[int, int]:
         """Build mapping of schedule_type to frequency"""
@@ -133,106 +136,89 @@ class CollectionScheduler:
 
     def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None,
                                     collection_tracker: Optional[TripCollection] = None) -> List[List[Location]]:
-        """Single trip optimization for vehicle assignments with time constraints"""
+        """Single trip optimization for vehicle assignments with geographic clustering"""
         if not locations:
             return [[] for _ in vehicles]
-        
+            
         print('[optimize_vehicle_assignments] - Day:', day)
-        print('[optimize_vehicle_assignments] - Vehicles:', vehicles)
-        print(f"\nAssigning {len(locations)} locations for Day {day}")
-        self._debug_print_location_details(locations)
+        
+        # First, cluster the locations
+        clusters = self.clusterer.cluster_locations(locations)
+        self.clusterer.print_cluster_analysis(clusters)
         
         # Initialize assignments
         assignments = [[] for _ in vehicles]
         vehicle_loads = [0.0 for _ in vehicles]
-        vehicle_times = [0.0 for _ in vehicles]  # Track accumulated time for each vehicle
+        vehicle_times = [0.0 for _ in vehicles]
         visited_locations: dict[str, int] = {}
+        unassigned_locations = []
         
-        # Sort locations by WCO amount (descending) for better capacity utilization
-        locations.sort(key=lambda x: (x.wco_amount, -x.distance_from_depot), reverse=True)
-        
-        for location in locations:
-            # Check if location is already visited in the collection tracker
-            already_visited = False
-            for v_idx, vehicle in enumerate(vehicles):
-                if collection_tracker and location.id in collection_tracker.get_visited_locations(vehicle.id, day):
-                    already_visited = True
-                    visited_locations[location.id] = v_idx
-                    break
-            
-            if already_visited or location.id in visited_locations:
-                print(f"Skipping {location.str()} - already visited")
-                continue
-
-            # Calculate collection time based on WCO amount
-            # Assume larger amounts take more time, but cap at MAX_COLLECTION_TIME
-            collection_time = min(
-                self.MAX_COLLECTION_TIME,
-                3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
-            )
-
-            # Find best vehicle based on remaining capacity and time constraints
+        # Assign clusters to vehicles
+        for cluster in clusters:
             best_vehicle = -1
             best_score = float('-inf')
             
             for v_idx, vehicle in enumerate(vehicles):
                 remaining = vehicle.get_remaining_capacity(vehicle_loads[v_idx])
-                if remaining < location.wco_amount:
+                if remaining < cluster.total_wco:
                     continue
-
-                # Check if adding this location would exceed time constraints
-                if vehicle_times[v_idx] + collection_time > self.MAX_COLLECTION_TIME * len(assignments[v_idx] + [location]):
-                    continue
-
-                # Score based on remaining capacity, current load balance, and time
-                capacity_ratio = remaining / vehicle.capacity
-                load_balance = 1 - (vehicle_loads[v_idx] / vehicle.capacity)
-                time_ratio = 1 - (vehicle_times[v_idx] / (self.MAX_COLLECTION_TIME * len(assignments[v_idx] + [location])))
+                    
+                load_ratio = cluster.total_wco / vehicle.capacity
+                time_ratio = cluster.total_time / (self.MAX_COLLECTION_TIME * len(cluster.locations))
                 
-                score = (capacity_ratio * 0.4 + 
-                        load_balance * 0.3 + 
-                        time_ratio * 0.3)
+                if time_ratio > 1.0:
+                    continue
+                    
+                score = load_ratio * 0.7 + (1 - time_ratio) * 0.3
                 
                 if score > best_score:
                     best_score = score
                     best_vehicle = v_idx
             
             if best_vehicle >= 0:
-                assignments[best_vehicle].append(location)
-                best_vehiclez = vehicles[best_vehicle]
-                vehicle_loads[best_vehicle] += location.wco_amount
-                vehicle_times[best_vehicle] += collection_time
-                visited_locations[location.id] = best_vehicle
-                print(f"Assigned {location.str()} to vehicle {best_vehiclez.id}")
-                print(f"Vehicle {best_vehiclez.id} stats:")
-                print(f"  Remaining capacity: {best_vehiclez.get_remaining_capacity(vehicle_loads[best_vehicle])}L")
-                print(f"  Average collection time: {vehicle_times[best_vehicle]/len(assignments[best_vehicle]):.1f} min")
+                for location in cluster.locations:
+                    if location.id not in visited_locations:
+                        assignments[best_vehicle].append(location)
+                        vehicle_loads[best_vehicle] += location.wco_amount
+                        visited_locations[location.id] = best_vehicle
             else:
-                print(f"Could not assign {location.str()} - exceeds capacity or time constraints")
+                # If cluster couldn't be assigned, add locations to unassigned list
+                unassigned_locations.extend(cluster.locations)
         
-        # Validate assignments
-        is_valid, issues = self._validate_assignments(assignments, vehicles, locations)
-        if not is_valid:
-            print("\nWarning: Assignment validation found issues:")
-            for issue in issues:
-                print(f"- {issue}")
+        # Try to assign remaining locations individually
+        if unassigned_locations:
+            print(f"\nTrying to assign {len(unassigned_locations)} remaining locations individually")
+            unassigned_locations.sort(key=lambda x: x.wco_amount, reverse=True)
             
-            # Here we could try to fix the assignments, but for single trip:
-            # - If location wasn't assigned, it stays unassigned (capacity constraint)
-            # - If location was assigned multiple times, keep first assignment
-            if any("duplicate" in issue.lower() for issue in issues):
-                print("\nRemoving duplicate assignments...")
-                assigned_locations = set()
-                for vehicle_assignments in assignments:
-                    to_remove = []
-                    for loc in vehicle_assignments:
-                        if loc.id in assigned_locations:
-                            to_remove.append(loc)
-                        else:
-                            assigned_locations.add(loc.id)
-                    for loc in to_remove:
-                        vehicle_assignments.remove(loc)
-                        print(f"Removed duplicate assignment of {loc.name}")
+            still_unassigned = []
+            for location in unassigned_locations:
+                if location.id in visited_locations:
+                    continue
+                    
+                best_vehicle = -1
+                best_fit = float('inf')
+                
+                for v_idx, vehicle in enumerate(vehicles):
+                    remaining = vehicle.get_remaining_capacity(vehicle_loads[v_idx])
+                    if remaining >= location.wco_amount:
+                        # Find vehicle with best remaining capacity fit
+                        fit_score = remaining - location.wco_amount
+                        if fit_score < best_fit:
+                            best_fit = fit_score
+                            best_vehicle = v_idx
+                
+                if best_vehicle >= 0:
+                    assignments[best_vehicle].append(location)
+                    vehicle_loads[best_vehicle] += location.wco_amount
+                    visited_locations[location.id] = best_vehicle
+                    print(f"Assigned {location.name} to Vehicle {vehicles[best_vehicle].id}")
+                else:
+                    still_unassigned.append(location)
+            
+            if still_unassigned:
+                print(f"\nWarning: {len(still_unassigned)} locations could not be assigned in this trip")
+                for loc in still_unassigned:
+                    print(f"- {loc.name}: {loc.wco_amount}L")
         
         return assignments
 

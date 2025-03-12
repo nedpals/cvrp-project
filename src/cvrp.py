@@ -15,6 +15,7 @@ class CVRP:
         self.solver_class = solver_class
         self.allow_multiple_trips = allow_multiple_trips
         self.constraints = constraints or RouteConstraints(one_way_roads=[])
+        self.max_trips_per_day = 5  # Limit trips per day per vehicle
 
     def _initialize_location_registry(self, locations: LocationRegistry) -> LocationRegistry:
         """Initialize location registry with depot distances"""
@@ -119,109 +120,77 @@ class CVRP:
             for day in scheduler.frequency_map:
                 # Initialize routes tracking per vehicle
                 vehicle_routes = {vehicle.id: [] for vehicle in self.vehicles}
+                vehicle_trip_counts = {vehicle.id: 0 for vehicle in self.vehicles}
+                unprocessed_locations = []
 
                 print(f"\nProcessing Day {day}")
                 
-                # Get daily locations based on whether it's combined or single
                 daily_locations = scheduler.combine_daily_collections(schedule_entries, day)
                 if not daily_locations:
-                    print("No collections scheduled for today")
                     continue
 
                 # Handle multiple trips if enabled
                 remaining_locations = daily_locations.copy()
-                trip_number = 1
-                
-                while remaining_locations and (self.allow_multiple_trips or trip_number == 1):
+                while remaining_locations and self.allow_multiple_trips:
+                    available_vehicles = [v for v in self.vehicles 
+                                        if vehicle_trip_counts[v.id] < self.max_trips_per_day]
+                    
+                    if not available_vehicles:
+                        print(f"All vehicles reached maximum trips ({self.max_trips_per_day}) for day {day}")
+                        unprocessed_locations.extend(remaining_locations)
+                        break
+
+                    trip_number = max(vehicle_trip_counts.values()) + 1
                     print(f"\nProcessing Trip #{trip_number}")
                     print(f"Remaining locations: {len(remaining_locations)}")
                     
-                    # Get assignments for this trip with collection tracker
+                    # Get assignments for this trip
                     vehicle_assignments = scheduler.optimize_vehicle_assignments(
-                        self.vehicles, day, remaining_locations, collection_tracker
+                        available_vehicles,
+                        day, 
+                        remaining_locations,
+                        collection_tracker
                     )
                     
-                    # Track which locations were successfully assigned
-                    unassigned_locations: list[Location] = []
-                    
-                    # Check which locations were assigned and which weren't
-                    for loc in remaining_locations:
-                        was_assigned = False
-                        for assigned_locs in vehicle_assignments:
-                            if loc in assigned_locs:
-                                was_assigned = True
-                                break
-                        if not was_assigned:
-                            unassigned_locations.append(loc)
-                    
-                    # Update remaining locations only if multiple trips are allowed
-                    if self.allow_multiple_trips:
-                        remaining_locations = unassigned_locations
-                    else:
-                        remaining_locations = []
-
-                    # Process routes for this trip
+                    # Process assignments and update remaining locations
+                    newly_assigned = set()
                     for vehicle_idx, assigned_locations in enumerate(vehicle_assignments):
-                        if not assigned_locations:
-                            continue
-
-                        # Print assigned locations
-                        vehicle = self.vehicles[vehicle_idx]
-
-                        print(f"\n[0 | Day {day}] Vehicle {vehicle.id} assigned locations for Trip {trip_number}:")
-                        for loc in assigned_locations:
-                            print(f"- [1] {loc.str()}")
+                        if assigned_locations:
+                            vehicle = available_vehicles[vehicle_idx]
+                            vehicle_trip_counts[vehicle.id] += 1
                             
-                        solver = self.solver_class(assigned_locations, [vehicle], self.constraints)
-                        new_routes = solver.solve()
-                        
-                        # Add routes with trip number
-                        for route in new_routes:
-                            if isinstance(route, list) and route:
-                                route_with_trip = {
-                                    'coordinates': route,
-                                    'trip_number': trip_number
-                                }
-                                vehicle_routes[vehicle.id].append(route_with_trip)
+                            # Process route and register collections
+                            solver = self.solver_class(assigned_locations, [vehicle], self.constraints)
+                            route = solver.solve()[0]
+                            
+                            for location in route:
+                                if location is None or location.id in newly_assigned:
+                                    continue
+                                    
+                                success = collection_tracker.register_collection(
+                                    vehicle_id=vehicle.id,
+                                    day=day,
+                                    trip_number=trip_number,
+                                    location=location
+                                )
+                                
+                                if success:
+                                    newly_assigned.add(location.id)
                     
-                    if remaining_locations:
-                        print(f"Still unassigned after trip #{trip_number}:")
-                        for loc in remaining_locations:
-                            print(f"- {loc.str()}")
-                    else:
-                        print(f"Day {day} completed with {trip_number} trips")
+                    # Update remaining locations
+                    remaining_locations = [loc for loc in remaining_locations 
+                                        if loc.id not in newly_assigned]
                     
-                    trip_number += 1
+                    if not newly_assigned:
+                        print("No new assignments made, breaking to avoid infinite loop")
+                        unprocessed_locations.extend(remaining_locations)
+                        break
 
-                # Process routes for all trips
-                for vehicle_idx, vehicle in enumerate(self.vehicles):
-                    for route_data in vehicle_routes[vehicle.id]:
-                        route = route_data['coordinates']
-                        trip_num = route_data['trip_number']
-                        
-                        if not isinstance(route, list) or not route:
-                            continue
-                            
-                        print(f"\nProcessing route for Vehicle {vehicle.id}, Trip {trip_num}, Day {day}")
-                        current_load = 0.0  # Track load for this trip
-                        
-                        for location in route:  # Skip depot
-                            if location is None:  # Skip depot markers
-                                continue
-                            
-                            # Register collection with the tracker instead of vehicle
-                            success = collection_tracker.register_collection(
-                                vehicle_id=vehicle.id,
-                                day=day, 
-                                trip_number=trip_num,
-                                location=location
-                            )
-                            
-                            if success:
-                                current_load += location.wco_amount
-                                print(f"Collected {location.wco_amount}L from {location.name}, Remaining capacity: {vehicle.capacity - current_load:.2f}L")
-                            else:
-                                print(f"Warning: Collection failed at {location.name}")
+                # Report any locations that couldn't be processed
+                if unprocessed_locations:
+                    print(f"\nWarning: {len(unprocessed_locations)} locations could not be processed on day {day}:")
+                    for loc in unprocessed_locations:
+                        print(f"- {loc.name}: {loc.wco_amount}L")
 
         else:
             # Non-scheduled processing
@@ -242,7 +211,7 @@ class CVRP:
                     success = collection_tracker.register_collection(
                         vehicle_id=vehicle.id,
                         day=day, 
-                        trip_number=trip_num,
+                        trip_number=trip_number,
                         location=location,
                         depot_location=vehicle.depot_location
                     )
