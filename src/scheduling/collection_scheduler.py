@@ -12,6 +12,7 @@ class CollectionScheduler:
     def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], simulation_days: int = 30):
         self.locations = locations
         self.frequency_map = self._build_frequency_map(schedules)
+        self.MAX_COLLECTION_TIME = 7  # minutes per establishment
         
         # Calculate max simulation days needed based on schedules
         max_freq = max(self.frequency_map.values())
@@ -132,7 +133,7 @@ class CollectionScheduler:
 
     def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None,
                                     collection_tracker: Optional[TripCollection] = None) -> List[List[Location]]:
-        """Single trip optimization for vehicle assignments"""
+        """Single trip optimization for vehicle assignments with time constraints"""
         if not locations:
             return [[] for _ in vehicles]
         
@@ -144,7 +145,8 @@ class CollectionScheduler:
         # Initialize assignments
         assignments = [[] for _ in vehicles]
         vehicle_loads = [0.0 for _ in vehicles]
-        visited_locations: dict[str, int] = {}  # location_id -> vehicle_id
+        vehicle_times = [0.0 for _ in vehicles]  # Track accumulated time for each vehicle
+        visited_locations: dict[str, int] = {}
         
         # Sort locations by WCO amount (descending) for better capacity utilization
         locations.sort(key=lambda x: (x.wco_amount, -x.distance_from_depot), reverse=True)
@@ -162,7 +164,14 @@ class CollectionScheduler:
                 print(f"Skipping {location.str()} - already visited")
                 continue
 
-            # Find best vehicle based on remaining capacity
+            # Calculate collection time based on WCO amount
+            # Assume larger amounts take more time, but cap at MAX_COLLECTION_TIME
+            collection_time = min(
+                self.MAX_COLLECTION_TIME,
+                3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
+            )
+
+            # Find best vehicle based on remaining capacity and time constraints
             best_vehicle = -1
             best_score = float('-inf')
             
@@ -171,25 +180,35 @@ class CollectionScheduler:
                 if remaining < location.wco_amount:
                     continue
 
-                # Score based on remaining capacity and current load balance
+                # Check if adding this location would exceed time constraints
+                if vehicle_times[v_idx] + collection_time > self.MAX_COLLECTION_TIME * len(assignments[v_idx] + [location]):
+                    continue
+
+                # Score based on remaining capacity, current load balance, and time
                 capacity_ratio = remaining / vehicle.capacity
                 load_balance = 1 - (vehicle_loads[v_idx] / vehicle.capacity)
-                score = capacity_ratio * 0.6 + load_balance * 0.4
+                time_ratio = 1 - (vehicle_times[v_idx] / (self.MAX_COLLECTION_TIME * len(assignments[v_idx] + [location])))
+                
+                score = (capacity_ratio * 0.4 + 
+                        load_balance * 0.3 + 
+                        time_ratio * 0.3)
                 
                 if score > best_score:
                     best_score = score
                     best_vehicle = v_idx
             
             if best_vehicle >= 0:
-                # Remove distance calculations here since they're handled in trip_collection
                 assignments[best_vehicle].append(location)
                 best_vehiclez = vehicles[best_vehicle]
                 vehicle_loads[best_vehicle] += location.wco_amount
+                vehicle_times[best_vehicle] += collection_time
                 visited_locations[location.id] = best_vehicle
                 print(f"Assigned {location.str()} to vehicle {best_vehiclez.id}")
-                print(f"Vehicle {best_vehiclez.id} remaining capacity: {best_vehiclez.get_remaining_capacity(vehicle_loads[best_vehicle])}L")
+                print(f"Vehicle {best_vehiclez.id} stats:")
+                print(f"  Remaining capacity: {best_vehiclez.get_remaining_capacity(vehicle_loads[best_vehicle])}L")
+                print(f"  Average collection time: {vehicle_times[best_vehicle]/len(assignments[best_vehicle]):.1f} min")
             else:
-                print(f"Could not assign {location.str()} - exceeds all vehicle capacities")
+                print(f"Could not assign {location.str()} - exceeds capacity or time constraints")
         
         # Validate assignments
         is_valid, issues = self._validate_assignments(assignments, vehicles, locations)
