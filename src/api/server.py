@@ -52,6 +52,7 @@ async def optimize_routes(
         location_registry = LocationRegistry()
         for loc in locations:
             location = Location(
+                id=loc.id,
                 name=loc.name,
                 coordinates=loc.coordinates,
                 wco_amount=loc.wco_amount,

@@ -4,6 +4,7 @@ from models.config import VehicleConfig
 from pydantic import BaseModel
 
 class LocationRequest(BaseModel):
+    id: str
     id_num: str
     name: str
     coordinates: Tuple[float, float]

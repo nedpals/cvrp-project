@@ -1,16 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import List, Tuple, Dict, Optional, Any
 from datetime import datetime
-import uuid
 
 class Location(BaseModel):
+    id: str
     name: str
     coordinates: Tuple[float, float]
     wco_amount: float
     disposal_schedule: int
     distance_from_depot: float = 0.0
     trip_number: int = 1
-    id: str = Field(default_factory=lambda: f"loc_{uuid.uuid4().hex[:8]}")
 
     def str(self):
         return f"{self.name} (ID: {self.id}, WCO: {self.wco_amount}L)"
@@ -67,6 +66,7 @@ class StopInfo(BaseModel):
 
 class StopResponse(BaseModel):
     name: str
+    location_id: str
     coordinates: Tuple[float, float]
     wco_amount: float
     trip_number: int

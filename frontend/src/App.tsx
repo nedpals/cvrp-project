@@ -4,7 +4,7 @@ import { useConfig } from './hooks/useConfig';
 import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
 import { ConfigRequest, RouteResponse } from './types/models';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFilterStore } from './stores/filterStore';
 import ResultsCard from './components/ResultsCard';
 
@@ -38,26 +38,33 @@ function App() {
     };
   }).filter(Boolean);
 
+  const activeVehicleRoutes = useMemo(() => {
+    const activeRoute = routes?.find(r => r.schedule_id === activeSchedule);
+    if (!activeRoute) return [];
+    return activeRoute.vehicle_routes;
+  }, [routes, activeSchedule]);
+
   // Filter locations based on active trips
-  const activeLocations = locations?.filter(location => {
-    // If no vehicles or trips are selected, show all locations
-    if (activeVehicles.size === 0 || activeTrips.size === 0) return true;
-    
-    // Show all locations if no routes or no active schedule
-    if (!routes || !activeSchedule) return true;
-    
-    const currentRoute = routes.find(r => r.schedule_id === activeSchedule);
-    if (!currentRoute) return true;
-    
-    // Check if this location is part of any active vehicle and trip combination
-    return currentRoute.vehicle_routes.some(vr =>
-      activeVehicles.has(vr.vehicle_id) &&
-      vr.stops.some(stop => 
-        activeTrips.has(stop.trip_number) && 
-        stop.location_id === location.id
-      )
-    );
-  });
+  const activeLocations = useMemo(() => {
+    return locations?.filter(location => {
+      // Show all locations if no routes or no active schedule
+      if (!activeVehicleRoutes) return true;
+
+      // Show locations that are part of active routes
+      return activeVehicleRoutes.some(vr => 
+       (!activeVehicles.size || activeVehicles.has(vr.vehicle_id)) &&
+       (!activeTrips.size || vr.stops.some(stop => activeTrips.has(stop.trip_number))) &&
+        vr.stops.some(stop => stop.location_id === location.id)
+      );
+    }) ?? [];
+  }, [locations, activeVehicles, activeTrips, activeVehicleRoutes]);
+
+  useEffect(() => {
+    console.log('Active locations:', activeLocations);
+    console.log('Active trips:', activeTrips);
+    console.log('Active schedule:', activeSchedule);
+    console.log('Routes:', activeVehicleRoutes);
+  }, [activeLocations, activeTrips, activeVehicleRoutes]);
 
   const handleConfigSubmit = async (config: ConfigRequest) => {
     if (!locations || locations.length === 0 || !activeSchedule) {
