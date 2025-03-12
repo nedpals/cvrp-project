@@ -3,6 +3,7 @@ import pandas as pd
 from models.location import Location
 from models.shared_models import ScheduleEntry
 from models.location_registry import LocationRegistry
+from uuid import uuid4
 
 class ScheduleLoader:
     @staticmethod
@@ -14,6 +15,7 @@ class ScheduleLoader:
         registry = LocationRegistry()
         for _, row in df.iterrows():
             location = Location(
+                id=f"loc_{uuid4().hex[:8]}",
                 name=row['name'],
                 coordinates=(row['latitude'], row['longitude']),
                 wco_amount=row['wco_amount'],
