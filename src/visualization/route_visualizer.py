@@ -211,8 +211,63 @@ class RouteVisualizer:
                                     max(lon for _, lon in all_coords)]])
 
     def save(self, filename: str):
-        """Save the map to an HTML file."""
+        """Save the map and route data in multiple formats."""
+        # Convert Path object to string if needed
+        filename = str(filename)
+        
+        # Save HTML map
         self.map.save(filename)
+        
+        # Save as TXT and JSON (without .html extension)
+        base_filename = filename.rsplit('.', 1)[0]
+        self._save_text_summary(f"{base_filename}.txt")
+        self._save_json_summary(f"{base_filename}.json")
+        
+    def _save_text_summary(self, filename: str):
+        """Save route summary in plain text format."""
+        with open(filename, 'w', encoding='utf-8') as f:
+            for schedule_id, vehicle_routes in self.computed_paths.items():
+                f.write(f"Schedule: {schedule_id}\n")
+                f.write("=" * 50 + "\n\n")
+                
+                for vehicle_id, paths in vehicle_routes.items():
+                    f.write(f"Vehicle {vehicle_id}:\n")
+                    f.write("-" * 30 + "\n")
+                    
+                    current_trip = 1
+                    for path in paths:
+                        if path.get('trip_number', 1) != current_trip:
+                            current_trip = path['trip_number']
+                            f.write(f"\nTrip #{current_trip}:\n")
+                            
+                        from_lat, from_lon = path['from_coords']
+                        to_lat, to_lon = path['to_coords']
+                        f.write(f"• From: ({from_lat:.6f}, {from_lon:.6f})\n")
+                        f.write(f"  To: ({to_lat:.6f}, {to_lon:.6f})\n")
+                    f.write("\n")
+                f.write("\n")
+
+    def _save_json_summary(self, filename: str):
+        """Save route summary in JSON format."""
+        import json
+        
+        # Convert coordinates to serializable format
+        json_data = {}
+        for schedule_id, vehicle_routes in self.computed_paths.items():
+            json_data[schedule_id] = {}
+            for vehicle_id, paths in vehicle_routes.items():
+                json_data[schedule_id][vehicle_id] = [
+                    {
+                        'from_coords': list(path['from_coords']),
+                        'to_coords': list(path['to_coords']),
+                        'path': path['path'],
+                        'trip_number': path.get('trip_number', 1)
+                    }
+                    for path in paths
+                ]
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2)
         
     def get_computed_paths(self) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return the computed road paths for all routes."""
