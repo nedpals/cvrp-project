@@ -210,7 +210,7 @@ class RouteVisualizer:
                                    [max(lat for lat, _ in all_coords), 
                                     max(lon for _, lon in all_coords)]])
 
-    def save(self, filename: str):
+    def save(self, filename: str, analysis: RouteAnalysisResult):
         """Save the map and route data in multiple formats."""
         # Convert Path object to string if needed
         filename = str(filename)
@@ -220,32 +220,36 @@ class RouteVisualizer:
         
         # Save as TXT and JSON (without .html extension)
         base_filename = filename.rsplit('.', 1)[0]
-        self._save_text_summary(f"{base_filename}.txt")
+        self._save_text_summary(f"{base_filename}.txt", analysis)
         self._save_json_summary(f"{base_filename}.json")
         
-    def _save_text_summary(self, filename: str):
-        """Save route summary in plain text format."""
+    def _save_text_summary(self, filename: str, analysis: RouteAnalysisResult):
+        """Save route summary in plain text format with aggregated statistics."""
         with open(filename, 'w', encoding='utf-8') as f:
             for schedule_id, vehicle_routes in self.computed_paths.items():
+                # Initialize counters
+                total_trips = set()
+                total_stops = 0
+                total_distance = 0.0
+                total_collected = 0.0
+
+                # Calculate totals from vehicle routes
+                for route_info in analysis.vehicle_routes:
+                    # Add all trip numbers to set
+                    total_trips.update(stop.trip_number for stop in route_info.stops)
+                    # Count stops
+                    total_stops += len(route_info.stops)
+                    # Sum up distance
+                    total_distance += route_info.total_distance
+                    # Sum up collected WCO
+                    total_collected += sum(stop.wco_amount for stop in route_info.stops)
+
+                # Write summary in requested format
                 f.write(f"Schedule: {schedule_id}\n")
-                f.write("=" * 50 + "\n\n")
-                
-                for vehicle_id, paths in vehicle_routes.items():
-                    f.write(f"Vehicle {vehicle_id}:\n")
-                    f.write("-" * 30 + "\n")
-                    
-                    current_trip = 1
-                    for path in paths:
-                        if path.get('trip_number', 1) != current_trip:
-                            current_trip = path['trip_number']
-                            f.write(f"\nTrip #{current_trip}:\n")
-                            
-                        from_lat, from_lon = path['from_coords']
-                        to_lat, to_lon = path['to_coords']
-                        f.write(f"• From: ({from_lat:.6f}, {from_lon:.6f})\n")
-                        f.write(f"  To: ({to_lat:.6f}, {to_lon:.6f})\n")
-                    f.write("\n")
-                f.write("\n")
+                f.write(f"Total Trips: {len(total_trips)}\n")
+                f.write(f"Total Stops: {total_stops}\n")
+                f.write(f"Total Distance: {total_distance:.2f} km\n")
+                f.write(f"Total Collected: {total_collected:.2f} L\n")
 
     def _save_json_summary(self, filename: str):
         """Save route summary in JSON format."""

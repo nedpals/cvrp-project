@@ -148,7 +148,7 @@ class CvrpSystem:
                     api_key=self.api_key
                 )
                 visualizer.add_routes(analysis)
-                visualizer.save(self.output_path / f"routes_{combo_name}.html")
+                visualizer.save(self.output_path / f"routes_{combo_name}.html", analysis)
                 
                 # Get computed road paths from the visualizer and add to the analysis
                 computed_paths = visualizer.get_computed_paths()
