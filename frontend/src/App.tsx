@@ -52,9 +52,10 @@ function App() {
 
       // Show locations that are part of active routes
       return activeVehicleRoutes.some(vr => 
-       (!activeVehicles.size || activeVehicles.has(vr.vehicle_id)) &&
-       (!activeTrips.size || vr.stops.some(stop => activeTrips.has(stop.trip_number))) &&
-        vr.stops.some(stop => stop.location_id === location.id)
+       (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
+        vr.stops.some(stop => 
+          (activeTrips.size === 0 || activeTrips.has(stop.trip_number)) &&
+          stop.location_id === location.id)
       );
     }) ?? [];
   }, [locations, activeVehicles, activeTrips, activeVehicleRoutes]);
