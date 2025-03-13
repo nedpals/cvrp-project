@@ -1,4 +1,4 @@
-from typing import List, Dict, Set, Tuple, Optional, Iterable
+from typing import List, Dict, Tuple, Optional, Iterable
 from models.location import Location, Vehicle
 from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH, MINUTES_PER_10KM
 from models.location_registry import LocationRegistry
@@ -11,10 +11,9 @@ class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
 
     def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], 
-                 vehicles: List[Vehicle], simulation_days: int = 30, 
-                 combine_schedules: bool = False):
+                 vehicles: List[Vehicle], simulation_days: int = 30):
         self.locations = locations
-        self.vehicles = vehicles  # Add vehicles to class
+        self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
         self.MAX_COLLECTION_TIME = 480  # Total working day in minutes
         self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
@@ -31,7 +30,6 @@ class CollectionScheduler:
         self.schedule_map = self._build_schedule_map()
         self.daily_visited_locations = {}
         self.clusterer = GeographicClusterer(max_time_per_stop=self.MAX_STOP_TIME)
-        self.combine_schedules = combine_schedules
     
     def _build_frequency_map(self, schedules: Iterable[ScheduleEntry]) -> dict[int, int]:
         """Build mapping of schedule_type to frequency"""
@@ -56,8 +54,8 @@ class CollectionScheduler:
         return schedule_map
 
     def is_collection_day(self, location: Location, day: int) -> bool:
-        """Check if today is a collection day for this location using schedule map"""
-        return location in self.schedule_map.get(day, [])
+        """Check if today is a collection day for this location"""
+        return day % location.disposal_schedule == 0
 
     def get_daily_collections(self, day: int) -> List[Location]:
         """Get locations that need collection on this day, excluding already visited locations"""
@@ -314,46 +312,6 @@ class CollectionScheduler:
         """Check if two schedules can have overlapping collection days"""
         return freq1 % freq2 == 0 or freq2 % freq1 == 0
 
-    def get_overlapping_schedules(schedules: List[ScheduleEntry]) -> List[Set[ScheduleEntry]]:
-        """Group schedules that can be optimized together"""
-        schedule_groups = []
-        used_schedules = set()
-
-        for i, schedule1 in enumerate(schedules):
-            if schedule1.id in used_schedules:
-                continue
-
-            current_group = {schedule1}
-            freq1 = schedule1.frequency
-
-            for schedule2 in schedules[i+1:]:
-                if schedule2.id in used_schedules:
-                    continue
-                    
-                if CollectionScheduler.can_schedules_overlap(freq1, schedule2.frequency):
-                    current_group.add(schedule2)
-
-            schedule_groups.append(current_group)
-            used_schedules.update(s.id for s in current_group)
-
-        return schedule_groups
-
-    def get_overlapping_schedules_for_day(self, schedules: List[ScheduleEntry], day: int) -> Set[ScheduleEntry]:
-        """Get schedules that overlap on the specified day"""
-        overlapping = set()
-
-        print(f"Checking overlapping schedules for day {day}")
-        
-        for schedule in schedules:
-            if day % schedule.frequency == 0:  # Check if this is a collection day for this schedule
-                overlapping.add(schedule)
-                # Find other schedules that overlap on this day
-                for other in schedules:
-                    if other != schedule and day % other.frequency == 0:
-                        overlapping.add(other)
-        
-        return overlapping
-
     def _balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int) -> Dict[int, List[Location]]:
         """Balance locations across multiple days if they can't all be serviced in one day"""
         balanced_days: Dict[int, List[Location]] = {original_day: []}
@@ -386,48 +344,24 @@ class CollectionScheduler:
         
         return balanced_days
 
-    def combine_daily_collections(self, all_schedules: Set[ScheduleEntry], day: int) -> List[Location]:
-        """Combine collections from overlapping schedules for a day with balancing"""
-        temp_registry = LocationRegistry()
-        
-        # Get schedules that overlap on this specific day
-        if self.combine_schedules:
-            active_schedules = self.get_overlapping_schedules_for_day(list(all_schedules), day)
-        else:
-            active_schedules = {s for s in all_schedules if s.frequency == day}
-
-        if not active_schedules:
+    def combine_daily_collections(self, schedule: ScheduleEntry, day: int) -> List[Location]:
+        """Get collections for a specific schedule and day"""
+        if day % schedule.frequency != 0:
             return []
             
-        print(f"Active schedules for day {day}: {[s.name for s in active_schedules]}")
+        # Get locations for this schedule
+        schedule_locations = [
+            loc for loc in self.locations.get_all()
+            if loc.disposal_schedule == schedule.frequency
+        ]
         
-        # Collect all locations for this day
-        all_day_locations = []
-        for schedule in active_schedules:
-            schedule_locations = [
-                loc for loc in self.locations.get_all()
-                if loc.disposal_schedule == schedule.frequency 
-                and self.is_collection_day(loc, day)
-            ]
-            all_day_locations.extend(schedule_locations)
-
         # Balance locations across days if needed
         balanced_assignments = self._balance_daily_collections(
-            all_day_locations,
-            [v for v in self.vehicles],  # You'll need to add vehicles as class attribute
+            schedule_locations,
+            self.vehicles,
             day
         )
         
-        # Update schedule map with balanced assignments
-        for assigned_day, locations in balanced_assignments.items():
-            if assigned_day not in self.schedule_map:
-                self.schedule_map[assigned_day] = []
-            self.schedule_map[assigned_day].extend(locations)
-            
-            if assigned_day != day:
-                print(f"Moved {len(locations)} locations from day {day} to day {assigned_day}")
-        
-        # Return only locations for requested day
         return balanced_assignments.get(day, [])
     
     def _estimate_travel_time(self, distance_km: float) -> float:
