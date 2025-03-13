@@ -7,9 +7,11 @@ import { ConfigRequest, RouteResponse } from './types/models';
 import { useEffect, useMemo } from 'react';
 import { useFilterStore } from './stores/filterStore';
 import ResultsCard from './components/ResultsCard';
+import { useConfigStore } from './stores/configStore';
 
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
+  const { depotLat, depotLng } = useConfigStore();
   const { locations, addLocation, removeLocation } = useLocations();
   const { routes, isLoading: isOptimizing, generateRoutes, switchToSchedule } = useOptimizeRoutes();
 
@@ -63,7 +65,6 @@ function App() {
   useEffect(() => {
     console.log('Active locations:', activeLocations);
     console.log('Active trips:', activeTrips);
-    console.log('Active schedule:', activeSchedule);
     console.log('Routes:', activeVehicleRoutes);
   }, [activeLocations, activeTrips, activeVehicleRoutes]);
 
@@ -91,6 +92,10 @@ function App() {
     }
   }, [activeSchedule, routes]);
 
+  useEffect(() => {
+    console.log('Depot:', depotLat, depotLng);
+  }, [depotLat, depotLng]);
+
   return (
     <div className="h-screen w-screen relative">
       {/* Full-screen map */}
@@ -98,7 +103,7 @@ function App() {
         {visualConfig ? (
           <Map
             locations={activeLocations}
-            depotLocation={mapCenter}
+            depotLocation={[parseFloat(depotLat), parseFloat(depotLng)]}
             center={mapCenter}
             routes={filteredRoutes?.filter((route): route is RouteResponse => route !== null)}
             config={visualConfig.map}
