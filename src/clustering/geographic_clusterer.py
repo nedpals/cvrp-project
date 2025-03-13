@@ -22,54 +22,56 @@ class GeographicClusterer:
         self.max_time_per_stop = max_time_per_stop
         
     def estimate_collection_time(self, location: Location) -> float:
-        """Estimate collection time based on WCO amount"""
-        return min(
-            self.max_time_per_stop,
-            3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
-        )
+        """Estimate collection time based on WCO amount, capped at max_time_per_stop"""
+        base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
+        return min(self.max_time_per_stop, base_time)
 
-    def cluster_locations(self, locations: List[Location]) -> List[GeographicCluster]:
+    def cluster_locations(self, locations: List[Location], pure_geographic: bool = True) -> List[GeographicCluster]:
+        """
+        Cluster locations with option for pure geographic clustering
+        pure_geographic: When True, only considers distances for clustering
+        """
         if not locations:
             return []
 
-        # Convert locations to numpy array of coordinates
         coords = np.array([[loc.coordinates[0], loc.coordinates[1]] for loc in locations])
         
         # Determine maximum possible clusters based on location count
         max_possible_clusters = min(len(locations), self.target_clusters)
         if max_possible_clusters < 2:
-            # If only one location, create single cluster
             return [self._create_cluster(0, locations)]
             
-        # Try different numbers of clusters if needed
         best_clusters = None
         best_score = float('inf')
         
-        # Try cluster counts from 2 up to max possible
         for n_clusters in range(2, max_possible_clusters + 1):
             kmeans = KMeans(n_clusters=n_clusters, random_state=42)
             labels = kmeans.fit_predict(coords)
             
-            # Group locations by cluster
             temp_clusters: Dict[int, List[Location]] = {}
             for idx, label in enumerate(labels):
                 if label not in temp_clusters:
                     temp_clusters[label] = []
                 temp_clusters[label].append(locations[idx])
             
-            # Score this clustering
-            score = self._evaluate_clustering(temp_clusters)
+            if pure_geographic:
+                # Only evaluate geographic cohesion
+                score = self._evaluate_geographic_clustering(temp_clusters)
+            else:
+                # Use full evaluation including capacity and time
+                score = self._evaluate_clustering(temp_clusters)
             
             if score < best_score:
                 best_score = score
                 best_clusters = temp_clusters
 
-        # Create final GeographicCluster objects
+        # Create GeographicCluster objects and sort locations within each cluster
         result = []
         for label, cluster_locs in best_clusters.items():
+            # Sort locations by WCO amount within cluster
+            cluster_locs.sort(key=lambda x: (-x.wco_amount, x.coordinates[0], x.coordinates[1]))
             result.append(self._create_cluster(label, cluster_locs))
         
-        # Sort clusters by ID
         result.sort(key=lambda x: x.id)
         return result
 
@@ -116,6 +118,36 @@ class GeographicClusterer:
             cohesion_penalty = np.mean(distances) if distances else 0
             
             score += capacity_penalty + time_penalty + cohesion_penalty
+            
+        return score
+
+    def _evaluate_geographic_clustering(self, clusters: Dict[int, List[Location]]) -> float:
+        """Evaluate clustering based purely on geographic cohesion"""
+        score = 0.0
+        
+        for cluster_locs in clusters.values():
+            # Calculate cluster center
+            center_lat = np.mean([loc.coordinates[0] for loc in cluster_locs])
+            center_lon = np.mean([loc.coordinates[1] for loc in cluster_locs])
+            
+            # Calculate distances from center
+            distances = [
+                np.sqrt((loc.coordinates[0] - center_lat)**2 + (loc.coordinates[1] - center_lon)**2)
+                for loc in cluster_locs
+            ]
+            
+            # Penalize spread-out clusters
+            avg_distance = np.mean(distances) if distances else 0
+            max_distance = max(distances) if distances else 0
+            
+            # Add penalties
+            score += (avg_distance * 3.0)  # Base distance penalty
+            score += (max_distance * 2.0)  # Extra penalty for outliers
+            
+            # Penalize very small or large clusters
+            ideal_size = len(cluster_locs) / len(clusters)
+            size_deviation = abs(len(cluster_locs) - ideal_size) / ideal_size
+            score += size_deviation * 0.5
             
         return score
 
