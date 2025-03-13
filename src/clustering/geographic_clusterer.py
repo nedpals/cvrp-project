@@ -1,6 +1,7 @@
 from typing import List, Dict
 from dataclasses import dataclass
 from models.location import Location
+from models.shared_models import AVERAGE_SPEED_KPH
 import numpy as np
 from sklearn.cluster import KMeans
 
@@ -20,6 +21,7 @@ class GeographicClusterer:
         self.target_clusters = target_clusters
         self.capacity_threshold = capacity_threshold
         self.max_time_per_stop = max_time_per_stop
+        self.SPEED_KPH = AVERAGE_SPEED_KPH
         
     def estimate_collection_time(self, location: Location) -> float:
         """Estimate collection time based on WCO amount, capped at max_time_per_stop"""
@@ -117,7 +119,12 @@ class GeographicClusterer:
             ]
             cohesion_penalty = np.mean(distances) if distances else 0
             
-            score += capacity_penalty + time_penalty + cohesion_penalty
+            # Add traffic-based penalty
+            avg_distance_km = np.mean(distances) if distances else 0
+            travel_time = (avg_distance_km / self.SPEED_KPH) * 60  # minutes
+            traffic_penalty = travel_time / 60  # Penalize longer travel times
+            
+            score += capacity_penalty + time_penalty + cohesion_penalty + traffic_penalty
             
         return score
 

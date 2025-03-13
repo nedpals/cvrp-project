@@ -3,6 +3,10 @@ from typing import List, Tuple, Dict, Optional, Any, Set
 from datetime import datetime
 from dataclasses import dataclass, field
 
+# Traffic Constants
+AVERAGE_SPEED_KPH = 18.2  # Average speed in Davao City
+MINUTES_PER_10KM = 32.983  # 32 minutes and 59 seconds per 10km
+
 # Add RouteConstraints class
 class RouteConstraints(BaseModel):
     one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
@@ -152,6 +156,7 @@ class RoutePathInfo:
     to_coords: Tuple[float, float]
     path: List[List[float]]
     trip_number: int = 0
+    travel_time_minutes: float = 0.0  # Add travel time field
 
 @dataclass
 class VehicleRouteInfo:

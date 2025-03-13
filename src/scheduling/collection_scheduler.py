@@ -1,6 +1,6 @@
 from typing import List, Dict, Set, Tuple, Optional, Iterable
 from models.location import Location, Vehicle
-from models.shared_models import ScheduleEntry
+from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH, MINUTES_PER_10KM
 from models.location_registry import LocationRegistry
 from models.trip_collection import TripCollection
 from utils import calculate_distance
@@ -19,6 +19,8 @@ class CollectionScheduler:
         self.MAX_COLLECTION_TIME = 480  # Total working day in minutes
         self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
         self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
+        self.SPEED_KPH = AVERAGE_SPEED_KPH
+        self.MINUTES_PER_10KM = MINUTES_PER_10KM
         
         # Calculate max simulation days needed based on schedules
         max_freq = max(self.frequency_map.values())
@@ -190,27 +192,34 @@ class CollectionScheduler:
                     )
                     current_time = vehicle_times[v_idx]
                     
-                    # Check both time constraints
-                    if (collection_time > self.MAX_STOP_TIME or 
-                        current_time + collection_time > self.MAX_COLLECTION_TIME):
-                        continue
-                        
-                    # Calculate assignment score
-                    capacity_ratio = location.wco_amount / remaining_capacity
-                    time_ratio = (current_time + collection_time) / self.MAX_COLLECTION_TIME
-                    
-                    # Get distance factor if there are previous stops
-                    distance_factor = 1.0
+                    # Get distance and travel time factors
                     if assignments[v_idx]:
                         last_loc = assignments[v_idx][-1]
-                        dist = calculate_distance(last_loc.coordinates, location.coordinates)
-                        distance_factor = 1.0 / (1 + dist)
+                        distance_km = calculate_distance(last_loc.coordinates, location.coordinates)
+                    else:
+                        # If first location in route, calculate distance from depot
+                        distance_km = calculate_distance(vehicle.depot_location, location.coordinates)
+
+                    distance_factor = 1.0 / (1 + distance_km)
+                    travel_time = self._estimate_travel_time(distance_km)
+                    total_time = current_time + collection_time + travel_time
                     
+                    # Check both time constraints with travel time included
+                    if (collection_time > self.MAX_STOP_TIME or 
+                        total_time > self.MAX_COLLECTION_TIME):
+                        continue
+                        
+                    # Calculate assignment score considering traffic
+                    capacity_ratio = location.wco_amount / remaining_capacity
+                    time_ratio = total_time / self.MAX_COLLECTION_TIME
+                    traffic_factor = 1.0 / (1 + (travel_time / 60))  # Convert to hours
+
                     # Combined score (higher is better)
                     score = (
-                        capacity_ratio * 0.4 +     # Prefer fuller vehicles
-                        (1 - time_ratio) * 0.3 +   # Prefer less time impact
-                        distance_factor * 0.3       # Prefer closer locations
+                        capacity_ratio * 0.3 +      # Prefer fuller vehicles
+                        (1 - time_ratio) * 0.3 +    # Prefer less time impact
+                        distance_factor * 0.2 +      # Prefer closer locations
+                        traffic_factor * 0.2         # Prefer shorter travel times
                     )
                     
                     if score > best_score:
@@ -416,3 +425,7 @@ class CollectionScheduler:
         
         # Return only locations for requested day
         return balanced_assignments.get(day, [])
+    
+    def _estimate_travel_time(self, distance_km: float) -> float:
+        """Estimate travel time in minutes based on average city speed"""
+        return (distance_km / self.SPEED_KPH) * 60
