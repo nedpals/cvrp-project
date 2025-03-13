@@ -112,6 +112,8 @@ class CollectionStop:
     distance_from_prev: float
     trip_number: int
     collection_day: int
+    collection_time: int = 0  # Collection time in seconds
+    travel_time: int = 0      # Travel time in seconds
 
 @dataclass
 class CollectionData:
@@ -129,6 +131,11 @@ class CollectionData:
         # Calculate cumulative load
         current_load = sum(stop.amount_collected for stop in self.stops)
         
+        # Calculate times using clusterer's logic
+        base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
+        collection_time = int(min(15 * 60, base_time * 60))  # Convert to seconds, cap at 15 minutes
+        travel_time = int((distance_from_prev / AVERAGE_SPEED_KPH) * 3600)  # Convert to seconds
+        
         # Create new stop
         new_stop = CollectionStop(
             location_id=location.id,
@@ -139,7 +146,9 @@ class CollectionData:
             remaining_capacity=0.0,  # Will be set by vehicle if needed
             distance_from_prev=distance_from_prev,
             trip_number=self.trip_number,
-            collection_day=self.day
+            collection_day=self.day,
+            collection_time=collection_time,
+            travel_time=travel_time
         )
         
         # Update collection data
@@ -168,6 +177,8 @@ class VehicleRouteInfo:
     efficiency: float
     collection_day: int
     stops: List[StopInfo]
+    total_collection_time: int = field(default=0)  # Total collection time in seconds
+    total_travel_time: int = field(default=0)      # Total travel time in seconds
     road_paths: List[Dict[str, Any]] = field(default_factory=list)
     combined_path: List[RoutePathInfo] = field(default_factory=list)
     trip_paths: Dict[int, List[RoutePathInfo]] = field(default_factory=dict)
@@ -185,6 +196,8 @@ class RouteAnalysisResult:
     total_stops: int
     collection_day: int
     vehicle_routes: List[VehicleRouteInfo]
+    total_collection_time: int = 0  # Total collection time in seconds
+    total_travel_time: int = 0      # Total travel time in seconds
     base_schedule_id: str = ""  # Add reference to original schedule
     base_schedule_day: int = 0  # Add reference to base frequency day
 
@@ -195,3 +208,6 @@ class RouteAnalysisResult:
             self.total_stops = sum(route.total_stops for route in self.vehicle_routes)
         if not self.base_schedule_id:
             self.base_schedule_id = self.schedule_id.split('_day')[0]  # Extract base ID from schedule_id
+        # Sum up total times
+        self.total_collection_time = sum(route.total_collection_time for route in self.vehicle_routes)
+        self.total_travel_time = sum(route.total_travel_time for route in self.vehicle_routes)

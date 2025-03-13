@@ -230,15 +230,19 @@ class CVRP:
             vehicle_routes = []
             total_distance = 0
             total_collected = 0
+            total_collection_time = 0
+            total_travel_time = 0
             total_locations = 0
-            
+
             for vehicle in self.vehicles:
                 route = collection_tracker.get_vehicle_route(vehicle.id, day)
                 if not route.stops:
                     continue
-                    
+
                 stops_data = []
                 vehicle_collected = 0
+                vehicle_collection_time = 0
+                vehicle_travel_time = 0
 
                 total_locations += len(route.stops)
                 
@@ -264,6 +268,10 @@ class CVRP:
                     stops_data.append(stop_info)
                     vehicle_collected += stop.amount_collected
                 
+                    # Track times
+                    vehicle_collection_time += stop.collection_time
+                    vehicle_travel_time += stop.travel_time
+
                 vehicle_route = VehicleRouteInfo(
                     vehicle_id=vehicle.id,
                     capacity=vehicle.capacity,
@@ -274,13 +282,17 @@ class CVRP:
                     efficiency=vehicle_collected / vehicle.capacity if vehicle.capacity > 0 else 0,
                     stops=stops_data,
                     collection_day=day,  # Add collection day
-                    road_paths=[]  # Road paths will be added later by the visualizer
+                    road_paths=[],  # Road paths will be added later by the visualizer
+                    total_collection_time=vehicle_collection_time,
+                    total_travel_time=vehicle_travel_time,
                 )
 
                 vehicle_routes.append(vehicle_route)
                 total_distance += route.total_distance
                 total_collected += vehicle_collected
-            
+                total_collection_time += vehicle_collection_time
+                total_travel_time += vehicle_travel_time
+
             # Calculate totals across all vehicles
             total_trips = sum(route.total_trips for route in vehicle_routes)
             total_stops = sum(route.total_stops for route in vehicle_routes)
@@ -299,6 +311,8 @@ class CVRP:
                 vehicle_routes=vehicle_routes,
                 base_schedule_id=schedule_id,  # Add reference to original schedule
                 base_schedule_day=base_day,     # Add reference to base frequency day
+                total_collection_time=total_collection_time,
+                total_travel_time=total_travel_time,
             )
             results.append(day_result)
         
