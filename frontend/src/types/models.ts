@@ -21,6 +21,7 @@ export interface Location {
 export interface Vehicle {
     id: string;
     capacity: number;
+    depot_location: [number, number];
 }
 
 export interface ScheduleEntry {
@@ -28,13 +29,15 @@ export interface ScheduleEntry {
     name: string;
     frequency: number;
     file: string;
+    description?: string;
+    color?: string;
 }
 
 export interface ConfigRequest {
-    depot_location: Coordinates;
+    depot_location: [number, number];
     vehicles: Vehicle[];
-    schedules: ScheduleEntry[];
-    one_way_roads: Coordinates[][];
+    schedules: ScheduleEntry[];  // Changed from schedules array to single schedule
+    one_way_roads: [number, number][][];
     solver: string;
     allow_multiple_trips: boolean;
 }
@@ -65,7 +68,7 @@ export interface RoadPath {
 export interface RoutePathInfo {
     from_coords: [number, number];
     to_coords: [number, number];
-    path: [number, number][];
+    path: number[][];
     trip_number: number;
     travel_time_minutes: number;
 }
@@ -80,7 +83,7 @@ export interface VehicleRouteInfo {
     efficiency: number;
     collection_day: number;
     stops: StopInfo[];
-    road_paths: RoadPath[];
+    road_paths: Record<string, RoadPath>[];
     combined_path: RoutePathInfo[];
     trip_paths: { [key: number]: RoutePathInfo[] };
 }
@@ -97,6 +100,8 @@ export interface RouteResponse {
     total_collected: number;
     collection_day: number;
     vehicle_routes: VehicleRouteInfo[];
+    base_schedule_id: string;
+    base_schedule_day: number;
 }
 
 export interface SolverInfo {

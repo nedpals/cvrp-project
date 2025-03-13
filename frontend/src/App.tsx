@@ -13,24 +13,24 @@ function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
   const { depotLat, depotLng } = useConfigStore();
   const { locations, addLocation, removeLocation } = useLocations();
-  const { routes, isLoading: isOptimizing, generateRoutes, switchToSchedule } = useOptimizeRoutes();
+  const { routes, isLoading: isOptimizing, generateRoutes } = useOptimizeRoutes();
 
   const {
     activeVehicles,
     activeTrips,
-    activeSchedule,
+    activeDay,  // Changed from activeSchedule
     initializeFilters
   } = useFilterStore();
 
   // Initialize filters when routes change
   useEffect(() => {
     if (routes) {
-      initializeFilters(routes, activeSchedule);
+      initializeFilters(routes);
     }
-  }, [routes, activeSchedule]);
+  }, [routes]);
 
   const filteredRoutes = routes?.map(route => {
-    if (activeSchedule && route.schedule_id !== activeSchedule) return null;
+    if (activeDay && route.collection_day !== activeDay) return null;
     return {
       ...route,
       vehicle_routes: route.vehicle_routes.filter(vr => 
@@ -41,18 +41,15 @@ function App() {
   }).filter(Boolean);
 
   const activeVehicleRoutes = useMemo(() => {
-    const activeRoute = routes?.find(r => r.schedule_id === activeSchedule);
+    const activeRoute = routes?.find(r => r.collection_day === activeDay);
     if (!activeRoute) return [];
     return activeRoute.vehicle_routes;
-  }, [routes, activeSchedule]);
+  }, [routes, activeDay]);
 
   // Filter locations based on active trips
   const activeLocations = useMemo(() => {
     return locations?.filter(location => {
-      // Show all locations if no routes or no active schedule
       if (!activeVehicleRoutes) return true;
-
-      // Show locations that are part of active routes
       return activeVehicleRoutes.some(vr => 
        (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
         vr.stops.some(stop => 
@@ -62,39 +59,22 @@ function App() {
     }) ?? [];
   }, [locations, activeVehicles, activeTrips, activeVehicleRoutes]);
 
-  useEffect(() => {
-    console.log('Active locations:', activeLocations);
-    console.log('Active trips:', activeTrips);
-    console.log('Routes:', activeVehicleRoutes);
-  }, [activeLocations, activeTrips, activeVehicleRoutes]);
-
   const handleConfigSubmit = async (config: ConfigRequest) => {
-    if (!locations || locations.length === 0 || !activeSchedule) {
+    if (!locations || locations.length === 0) {
       return;
     }
 
     try {
-      await generateRoutes(config, locations, activeSchedule);
+      const configWithDepot = {
+        ...config,
+        depot_location: [parseFloat(depotLat), parseFloat(depotLng)] as [number, number]
+      };
+      await generateRoutes(configWithDepot, locations);
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to generate routes');
     }
   };
-
-  // Update effect to handle schedule switching
-  useEffect(() => {
-    if (activeSchedule && routes) {
-      const matchingRoute = routes.find(r => r.schedule_id === activeSchedule);
-      if (!matchingRoute) {
-        // If we don't have routes for this schedule yet, try to switch to it
-        switchToSchedule(activeSchedule);
-      }
-    }
-  }, [activeSchedule, routes]);
-
-  useEffect(() => {
-    console.log('Depot:', depotLat, depotLng);
-  }, [depotLat, depotLng]);
 
   return (
     <div className="h-screen w-screen relative">

@@ -2,30 +2,80 @@ import { RouteResponse } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
 
 interface ResultsCardProps {
-  routes: RouteResponse[] | null;
+  routes: RouteResponse[];
 }
 
 export default function ResultsCard({ routes }: ResultsCardProps) {
   const {
     activeVehicles,
     activeTrips,
-    activeSchedule,
-    toggleVehicle,
-    toggleTrip,
-    toggleAllTrips,
+    activeDay,
+    setActiveVehicles,
+    setActiveTrips,
+    setActiveDay
   } = useFilterStore();
 
-  if (!routes || !activeSchedule) return null;
+  if (!routes || routes.length === 0 || !activeDay) return null;
 
-  const currentRoute = routes.find(r => r.schedule_id === activeSchedule);
+  const currentRoute = routes.find(r => r.collection_day === activeDay);
   if (!currentRoute) return null;
+
+  const toggleVehicle = (vehicleId: string) => {
+    const newVehicles = new Set(activeVehicles);
+    if (newVehicles.has(vehicleId)) {
+      newVehicles.delete(vehicleId);
+    } else {
+      newVehicles.add(vehicleId);
+    }
+    setActiveVehicles(newVehicles);
+  };
+
+  const toggleTrip = (tripNumber: number) => {
+    const newTrips = new Set(activeTrips);
+    if (newTrips.has(tripNumber)) {
+      newTrips.delete(tripNumber);
+    } else {
+      newTrips.add(tripNumber);
+    }
+    setActiveTrips(newTrips);
+  };
+
+  const toggleAllTrips = (route: RouteResponse) => {
+    const trips = new Set<number>();
+    if (activeTrips.size === 0) {
+      // Add all trips
+      route.vehicle_routes.forEach(vr => {
+        vr.stops.forEach(stop => {
+          trips.add(stop.trip_number);
+        });
+      });
+    }
+    setActiveTrips(trips);
+  };
 
   return (
     <div className="bg-white/95 backdrop-blur p-4 rounded-lg shadow-lg h-[calc(100vh-2rem)]">
       <div className="flex flex-col h-full">
-        {/* Header */}
+        {/* Day Selection */}
+        <div className="mb-4 flex gap-2">
+          {routes.map(route => (
+            <button
+              key={route.collection_day}
+              onClick={() => setActiveDay(route.collection_day)}
+              className={`px-2 py-1 text-xs rounded ${
+                activeDay === route.collection_day
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              Day {route.collection_day}
+            </button>
+          ))}
+        </div>
+
+        {/* Route Stats */}
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">{currentRoute.schedule_name}</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Day {currentRoute.collection_day}</h2>
           <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
             <div className="bg-blue-50 p-2 rounded">
               <span className="text-blue-700 font-medium">{currentRoute.total_stops}</span>

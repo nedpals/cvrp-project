@@ -2,21 +2,77 @@ import { RouteResponse } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
 
 interface FilterControlsProps {
-    routes?: RouteResponse[];
+    routes: RouteResponse[];
 }
 
 export default function FilterControls({ routes }: FilterControlsProps) {
     const {
         activeVehicles,
         activeTrips,
-        toggleVehicle,
-        toggleTrip,
-        selectAll,
-        clearAll,
-        toggleAllTrips
+        setActiveVehicles,
+        setActiveTrips,
     } = useFilterStore();
 
-    if (!routes) return null;
+    if (!routes || routes.length === 0) return null;
+
+    const toggleVehicle = (vehicleId: string) => {
+        const newVehicles = new Set(activeVehicles);
+        if (newVehicles.has(vehicleId)) {
+            newVehicles.delete(vehicleId);
+        } else {
+            newVehicles.add(vehicleId);
+        }
+        setActiveVehicles(newVehicles);
+    };
+
+    const selectAll = (routes: RouteResponse[]) => {
+        const vehicles = new Set<string>();
+        const trips = new Set<number>();
+
+        routes.forEach(route => {
+            route.vehicle_routes.forEach(vr => {
+                vehicles.add(vr.vehicle_id);
+                vr.stops.forEach(stop => trips.add(stop.trip_number));
+            });
+        });
+
+        setActiveVehicles(vehicles);
+        setActiveTrips(trips);
+    };
+
+    const clearAll = () => {
+        setActiveVehicles(new Set());
+        setActiveTrips(new Set());
+    };
+
+    const toggleTrip = (tripNumber: number) => {
+        const newTrips = new Set(activeTrips);
+        if (newTrips.has(tripNumber)) {
+            newTrips.delete(tripNumber);
+        } else {
+            newTrips.add(tripNumber);
+        }
+        setActiveTrips(newTrips);
+    };
+
+    const toggleAllTrips = (route: RouteResponse) => {
+        const routeTrips = new Set<number>();
+        route.vehicle_routes.forEach(vr => {
+            vr.stops.forEach(stop => routeTrips.add(stop.trip_number));
+        });
+
+        // If all trips in this route are active, clear them. Otherwise, add all
+        const allActive = Array.from(routeTrips).every(trip => activeTrips.has(trip));
+        if (allActive) {
+            const newTrips = new Set(activeTrips);
+            routeTrips.forEach(trip => newTrips.delete(trip));
+            setActiveTrips(newTrips);
+        } else {
+            const newTrips = new Set(activeTrips);
+            routeTrips.forEach(trip => newTrips.add(trip));
+            setActiveTrips(newTrips);
+        }
+    };
 
     const allTrips = new Set<number>();
     const vehicleColors: Record<string, string> = {};

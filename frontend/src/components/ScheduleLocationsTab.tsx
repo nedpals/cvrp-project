@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { ScheduleEntry, Location, FREQUENCY_PRESETS } from '../types/models';
 import LocationForm from './LocationForm';
 import Papa from 'papaparse';
-import { useFilterStore } from '../stores/filterStore';
-import { useOptimizeRoutes } from '../hooks/useOptimizeRoutes';
 
 interface ScheduleLocationsTabProps {
     schedules: ScheduleEntry[];
@@ -28,19 +26,10 @@ export default function ScheduleLocationsTab({
     onAddLocation,
     onRemoveLocation
 }: ScheduleLocationsTabProps) {
-    const { setActiveSchedule, activeSchedule } = useFilterStore();
-    const { switchToSchedule } = useOptimizeRoutes();
+    const [currentSchedule, setCurrentSchedule] = useState<string | null>(schedules[0]?.id || null);
 
-    const handleScheduleToggle = async (scheduleId: string, isEnabled: boolean) => {
-        const updatedSchedules = schedules.map(schedule => 
-            schedule.id === scheduleId ? { ...schedule, enabled: isEnabled } : schedule
-        );
-        onUpdateSchedules(updatedSchedules);
-
-        if (isEnabled) {
-            setActiveSchedule(scheduleId);
-            await switchToSchedule(scheduleId);
-        }
+    const handleScheduleToggle = (scheduleId: string) => {
+        setCurrentSchedule(scheduleId);
     };
 
     const [uploadError, setUploadError] = useState<string>();
@@ -53,7 +42,7 @@ export default function ScheduleLocationsTab({
             file: 'schedule.json'
         };
         onUpdateSchedules([...schedules, newSchedule]);
-        setActiveSchedule(newSchedule.id);
+        setCurrentSchedule(newSchedule.id);
     };
 
     const updateSchedule = (index: number, field: keyof ScheduleEntry, value: unknown) => {
@@ -67,14 +56,14 @@ export default function ScheduleLocationsTab({
         const remainingSchedules = schedules.filter((_, i) => i !== index);
         onUpdateSchedules(remainingSchedules);
         
-        // If active schedule was removed, select the first available schedule
-        if (schedule.id === activeSchedule && remainingSchedules.length > 0) {
-            setActiveSchedule(remainingSchedules[0].id);
+        // If current schedule was removed, select the first available schedule
+        if (schedule.id === currentSchedule && remainingSchedules.length > 0) {
+            setCurrentSchedule(remainingSchedules[0].id);
         }
     };
 
     const handleAddLocation = (location: Location) => {
-        const schedule = schedules.find(s => s.id === activeSchedule);
+        const schedule = schedules.find(s => s.id === currentSchedule);
         if (schedule) {
             onAddLocation({
                 ...location,
@@ -119,14 +108,14 @@ export default function ScheduleLocationsTab({
         event.target.value = '';
     };
 
-    // Filter locations for the active schedule
+    // Filter locations for the current schedule
     const scheduleLocations = locations.filter(loc => {
-        const schedule = schedules.find(s => s.id === activeSchedule);
+        const schedule = schedules.find(s => s.id === currentSchedule);
         return schedule && loc.disposal_schedule === schedule.frequency;
     });
 
-    // Get current schedule frequency
-    const currentSchedule = schedules.find(s => s.id === activeSchedule);
+    // Get current schedule details
+    const activeSchedule = schedules.find(s => s.id === currentSchedule);
 
     return (
         <div className="space-y-3">
@@ -135,9 +124,9 @@ export default function ScheduleLocationsTab({
                 {schedules.map((schedule) => (
                     <button
                         key={schedule.id}
-                        onClick={() => handleScheduleToggle(schedule.id, true)}
+                        onClick={() => handleScheduleToggle(schedule.id)}
                         className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
-                            activeSchedule === schedule.id
+                            currentSchedule === schedule.id
                                 ? 'bg-blue-100 text-blue-700 font-medium'
                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
@@ -154,22 +143,22 @@ export default function ScheduleLocationsTab({
             </div>
             
             {/* Active Schedule Options */}
-            {currentSchedule && (
+            {activeSchedule && (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md">
                     <input
                         type="text"
-                        value={currentSchedule.name}
+                        value={activeSchedule.name}
                         onChange={(e) => {
-                            const index = schedules.findIndex(s => s.id === activeSchedule);
+                            const index = schedules.findIndex(s => s.id === currentSchedule);
                             updateSchedule(index, 'name', e.target.value);
                         }}
                         className="flex-1 border p-1 rounded text-xs"
                         placeholder="Schedule Name"
                     />
                     <select
-                        value={currentSchedule.frequency}
+                        value={activeSchedule.frequency}
                         onChange={(e) => {
-                            const index = schedules.findIndex(s => s.id === activeSchedule);
+                            const index = schedules.findIndex(s => s.id === currentSchedule);
                             updateSchedule(index, 'frequency', parseInt(e.target.value));
                         }}
                         className="border p-1 rounded text-xs bg-white"
@@ -183,7 +172,7 @@ export default function ScheduleLocationsTab({
                     {schedules.length > 1 && (
                         <button
                             onClick={() => {
-                                const index = schedules.findIndex(s => s.id === activeSchedule);
+                                const index = schedules.findIndex(s => s.id === currentSchedule);
                                 removeSchedule(index);
                             }}
                             className="bg-red-100 text-red-700 rounded p-1 text-xs hover:bg-red-200"
@@ -218,7 +207,7 @@ export default function ScheduleLocationsTab({
             {/* Location Form */}
             <LocationForm 
                 onAddLocation={handleAddLocation}
-                defaultFrequency={currentSchedule?.frequency}
+                defaultFrequency={activeSchedule?.frequency}
             />
 
             {/* Locations List */}

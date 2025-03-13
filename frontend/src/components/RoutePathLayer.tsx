@@ -1,6 +1,7 @@
 import { LayerGroup, Polyline } from 'react-leaflet';
 import { VehicleRouteInfo } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
+import { LatLngTuple } from 'leaflet';
 
 interface RoutePathLayerProps {
   vehicleRoute: VehicleRouteInfo;
@@ -14,10 +15,9 @@ export default function RoutePathLayer({ vehicleRoute, color }: RoutePathLayerPr
   if (activeTrips.size === 0 && vehicleRoute.combined_path) {
     return (
       <LayerGroup>
-        {vehicleRoute.combined_path.map((pathInfo, idx) => (
+        {vehicleRoute.combined_path.map((pathInfo) => (
           <Polyline
-            key={`combined-${idx}`}
-            positions={pathInfo.path}
+            positions={pathInfo.path as LatLngTuple[]}
             color={color}
             weight={2}
             opacity={0.8}
@@ -37,7 +37,7 @@ export default function RoutePathLayer({ vehicleRoute, color }: RoutePathLayerPr
         return paths.map((pathInfo, idx) => (
           <Polyline
             key={`trip-${tripNumber}-${idx}`}
-            positions={pathInfo.path}
+            positions={pathInfo.path as LatLngTuple[]}
             color={color}
             weight={2}
             opacity={0.8}

@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import List
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from datetime import datetime
 
 from models.shared_models import (
     Location,
@@ -45,6 +47,12 @@ SOLVERS = {
     'nearest': NearestNeighborSolver,
     'schedule': ScheduleAwareSolver
 }
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 @app.post("/api/optimize", response_model=List[RouteResponse])
 async def optimize_routes(
@@ -142,8 +150,14 @@ async def optimize_routes(
                 print(f"Warning: Failed to generate road paths for schedule {base_id}: {str(path_error)}")
                 final_results.extend(sorted_days)  # Add results without road paths
 
-        # Convert to JSON-serializable format
-        return Response(content=jsonable_encoder(final_results), media_type="application/json")
+        # Convert datetime objects and encode to JSON
+        serializable_results = []
+        for result in final_results:
+            result_dict = result.__dict__
+            result_dict['date_generated'] = result_dict['date_generated'].isoformat()
+            serializable_results.append(result_dict)
+
+        return JSONResponse(content=jsonable_encoder(serializable_results))
 
     except Exception as e:
         raise HTTPException(
