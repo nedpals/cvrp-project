@@ -138,7 +138,7 @@ class CvrpSystem:
     def save_analysis_results(self, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
         """Save analysis results to files, organizing by schedule and day."""
         # Group results by base schedule
-        schedule_groups = {}
+        schedule_groups: dict[str, list[RouteAnalysisResult]] = {}
         for analysis in results:
             base_id = analysis.base_schedule_id
             if base_id not in schedule_groups:

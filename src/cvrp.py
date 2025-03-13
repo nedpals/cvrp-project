@@ -1,5 +1,5 @@
 from typing import List, Set, Tuple, Iterable
-from models.location import Location, Vehicle, RouteConstraints
+from models.location import Vehicle, RouteConstraints
 from models.shared_models import ScheduleEntry
 from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
@@ -73,6 +73,10 @@ class CVRP:
                 
             print(f"Found {len(schedule_locations)} locations for {schedule.name}")
             
+            # Track processed locations for this schedule
+            processed_location_ids = set()
+            location_assignments = {}  # Track which day each location is assigned to
+            
             # Get balanced daily assignments from scheduler
             balanced_assignments = self.collection_scheduler._balance_daily_collections(
                 locations=schedule_locations,
@@ -86,7 +90,11 @@ class CVRP:
                     continue
                     
                 print(f"\nProcessing day {day} for {schedule.name}")
-                print(f"Locations to process: {len(day_locations)}")
+                print(f"Assigned locations for day {day}: {len(day_locations)}")
+                
+                # Track day assignments
+                for loc in day_locations:
+                    location_assignments[loc.id] = day
                 
                 # Get vehicle assignments from scheduler
                 vehicle_assignments = self.collection_scheduler.optimize_vehicle_assignments(
@@ -120,6 +128,44 @@ class CVRP:
                             if current_load >= vehicle.capacity:
                                 trip_number += 1
                                 current_load = 0.0
+                                
+                        # Track processed locations
+                        processed_location_ids.add(location.id)
+            
+            # Detailed verification of locations
+            missing_locations = []
+            successful_locations = []
+            
+            for loc in schedule_locations:
+                if loc.id in processed_location_ids:
+                    assigned_day = location_assignments.get(loc.id, "unknown")
+                    successful_locations.append((loc, assigned_day))
+                else:
+                    missing_locations.append(loc)
+
+            # Print detailed report
+            print(f"\nLocation Processing Report for {schedule.name}:")
+            print(f"Total locations: {len(schedule_locations)}")
+            print(f"Successfully processed: {len(successful_locations)}")
+            print(f"Missing: {len(missing_locations)}")
+            
+            if successful_locations:
+                print("\nProcessed Locations:")
+                for loc, day in successful_locations:
+                    print(f"- {loc.name}: Processed on day {day}, WCO: {loc.wco_amount}L")
+            
+            if missing_locations:
+                print(f"\nWARNING: {len(missing_locations)} locations were not processed:")
+                total_missed_wco = sum(loc.wco_amount for loc in missing_locations)
+                print("\nMissing locations:")
+                for loc in missing_locations:
+                    print(f"- {loc.name}: {loc.wco_amount}L WCO, Distance from depot: {loc.distance_from_depot:.2f}km")
+                print(f"\nTotal missed WCO: {total_missed_wco}L ({(total_missed_wco/sum(loc.wco_amount for loc in schedule_locations)*100):.1f}% of schedule total)")
+                print("\nPossible reasons:")
+                print("1. Vehicle capacity constraints")
+                print(f"2. Time budget constraints ({self.collection_scheduler.MAX_COLLECTION_TIME/60:.1f}-hour workday)")
+                print("3. Travel time constraints")
+                print(f"4. Distance from depot (check locations > {self.collection_scheduler.MAX_TRAVEL_TIME/60:.1f} hours away)")
             
             # Generate analysis for all days of this schedule
             schedule_results = self.generate_analysis_data(
@@ -240,7 +286,7 @@ class CVRP:
                 schedule_id=f"{schedule_id}_day{day}",  # Unique ID for each day
                 schedule_name=f"{schedule_name} (Day {day})",  # Add day to name
                 date_generated=datetime.now(),
-                total_locations=total_locations - 1,
+                total_locations=total_locations,
                 total_vehicles=len(self.vehicles),
                 total_distance=total_distance,
                 total_collected=total_collected,
@@ -249,7 +295,7 @@ class CVRP:
                 collection_day=day,
                 vehicle_routes=vehicle_routes,
                 base_schedule_id=schedule_id,  # Add reference to original schedule
-                base_schedule_day=base_day     # Add reference to base frequency day
+                base_schedule_day=base_day,     # Add reference to base frequency day
             )
             results.append(day_result)
         
