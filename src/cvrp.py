@@ -244,6 +244,9 @@ class CVRP:
                 
                 for i, stop in enumerate(route.stops):
                     location_data = locations.get_by_id(stop.location_id)
+                    # Calculate remaining capacity after this stop
+                    remaining_capacity = vehicle.capacity - stop.cumulative_load
+                    
                     stop_info = StopInfo(
                         name=stop.location_name,
                         location_id=stop.location_id,
@@ -251,7 +254,7 @@ class CVRP:
                         wco_amount=stop.amount_collected,
                         trip_number=stop.trip_number,
                         cumulative_load=stop.cumulative_load,
-                        remaining_capacity=stop.remaining_capacity,
+                        remaining_capacity=remaining_capacity,  # Set calculated remaining capacity
                         distance_from_depot=location_data.distance_from_depot,
                         distance_from_prev=stop.distance_from_prev,
                         vehicle_capacity=vehicle.capacity,

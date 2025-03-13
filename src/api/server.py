@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 import json
 from pathlib import Path
 from typing import List
+from fastapi.encoders import jsonable_encoder
 
 from models.shared_models import (
     Location,
@@ -48,13 +49,13 @@ SOLVERS = {
 @app.post("/api/optimize", response_model=List[RouteResponse])
 async def optimize_routes(
     config: ConfigRequest,
-    locations: List[Location]  # Changed from LocationRequest to Location
+    locations: List[Location]
 ) -> List[RouteResponse]:
     try:
-        # Convert locations to LocationRegistry
+        # Initialize location registry
         location_registry = LocationRegistry()
         for loc in locations:
-            location_registry.add(loc)  # No need for conversion since we're using Location directly
+            location_registry.add(loc)
 
         # Create vehicles from config
         vehicles = [
@@ -71,7 +72,7 @@ async def optimize_routes(
                           for road in config.one_way_roads]
         )
 
-        # Get solver class
+        # Validate solver
         if config.solver not in SOLVERS:
             raise HTTPException(
                 status_code=400,
@@ -99,31 +100,50 @@ async def optimize_routes(
         ]
 
         # Process routes
-        results, _ = cvrp.process(
+        results, collection_tracker = cvrp.process(
             schedule_entries=schedule_entries,
             locations=location_registry
         )
         
-        # Generate road paths using the visualizer
+        # Generate road paths and group by schedule
+        schedule_results = {}  # Group results by base schedule
         for result in results:
+            base_id = result.base_schedule_id
+            if base_id not in schedule_results:
+                schedule_results[base_id] = []
+            schedule_results[base_id].append(result)
+        
+        # Process each schedule's results
+        final_results = []
+        for base_id, schedule_days in schedule_results.items():
+            # Sort by day
+            sorted_days = sorted(schedule_days, key=lambda x: x.collection_day)
+            
             try:
-                visualizer = RouteVisualizer(
-                    center_coordinates=config.depot_location,
-                    api_key=os.getenv('ORS_API_KEY')
-                )
-                visualizer.add_routes(result)
-                
-                # Get computed paths and update the result
-                computed_paths = visualizer.get_computed_paths()
-                if result.schedule_id in computed_paths:
-                    for vehicle_route in result.vehicle_routes:
-                        if vehicle_route.vehicle_id in computed_paths[result.schedule_id]:
-                            vehicle_route.road_paths = computed_paths[result.schedule_id][vehicle_route.vehicle_id]
-            except Exception as path_error:
-                print(f"Warning: Failed to generate road paths: {str(path_error)}")
-                # Continue with straight paths if road path generation fails
+                # Process each day
+                for day_result in sorted_days:
+                    visualizer = RouteVisualizer(
+                        center_coordinates=config.depot_location,
+                        api_key=os.getenv('ORS_API_KEY')
+                    )
 
-        return results
+                    visualizer.add_routes(day_result)
+                    
+                    # Get computed paths and update the result
+                    computed_paths = visualizer.get_computed_paths()
+                    if day_result.schedule_id in computed_paths:
+                        for vehicle_route in day_result.vehicle_routes:
+                            if vehicle_route.vehicle_id in computed_paths[day_result.schedule_id]:
+                                vehicle_route.road_paths = computed_paths[day_result.schedule_id][vehicle_route.vehicle_id]
+                    
+                    final_results.append(day_result)
+                    
+            except Exception as path_error:
+                print(f"Warning: Failed to generate road paths for schedule {base_id}: {str(path_error)}")
+                final_results.extend(sorted_days)  # Add results without road paths
+
+        # Convert to JSON-serializable format
+        return Response(content=jsonable_encoder(final_results), media_type="application/json")
 
     except Exception as e:
         raise HTTPException(
