@@ -10,7 +10,7 @@ from clustering.geographic_clusterer import GeographicClusterer
 class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
 
-    def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], simulation_days: int = 30):
+    def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], simulation_days: int = 30, combine_schedules: bool = False):
         self.locations = locations
         self.frequency_map = self._build_frequency_map(schedules)
         self.MAX_COLLECTION_TIME = 7  # minutes per establishment
@@ -24,6 +24,7 @@ class CollectionScheduler:
         self.schedule_map = self._build_schedule_map()
         self.daily_visited_locations = {}
         self.clusterer = GeographicClusterer()
+        self.combine_schedules = combine_schedules
     
     def _build_frequency_map(self, schedules: Iterable[ScheduleEntry]) -> dict[int, int]:
         """Build mapping of schedule_type to frequency"""
@@ -311,7 +312,12 @@ class CollectionScheduler:
         temp_registry = LocationRegistry()
         
         # Get schedules that overlap on this specific day
-        active_schedules = self.get_overlapping_schedules_for_day(list(all_schedules), day)
+        if self.combine_schedules:
+            active_schedules = self.get_overlapping_schedules_for_day(list(all_schedules), day)
+        else:
+            active_schedules = {s for s in all_schedules if s.frequency == day}
+
+        # Disable overlapping schedules for now
         if not active_schedules:
             return []
             
