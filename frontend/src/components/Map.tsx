@@ -1,9 +1,12 @@
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { forwardRef, useImperativeHandle } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.awesome-markers/dist/leaflet.awesome-markers.css';
 import { Location, RouteResponse, Coordinates, StopInfo, VehicleRouteInfo } from '../types/models';
 import { createDepotMarker, createLocationMarker } from '../utils/mapIcons';
 import RoutePathLayer from './RoutePathLayer';
+import { MapRef } from '../types/map';
+import { Point } from 'leaflet';
 
 interface MapConfig {
     zoom_level: number;
@@ -21,7 +24,58 @@ interface MapProps {
 
 const VEHICLE_COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
 
-export default function Map({ locations, center, depotLocation, routes, config }: MapProps) {
+const MapController = forwardRef<MapRef, unknown>((_, ref) => {
+    const map = useMap();
+
+    useImperativeHandle(ref, () => ({
+        zoomTo: (coordinates: [number, number], zoom: number, offset?: { x: number, y: number }) => {
+            // Calculate target point with offset before zooming
+            const targetPoint = map.project(coordinates, zoom);
+            if (offset) {
+                targetPoint.x += offset.x;
+            }
+            const targetLatLng = map.unproject(targetPoint, zoom);
+            
+            // Use flyTo for smooth animation and better UX
+            map.flyTo(targetLatLng, zoom, {
+                duration: 0.5 // seconds
+            });
+        },
+        fitBounds: (coordinates: [number, number][], padding?: { x: number, y: number }) => {
+            if (coordinates.length === 0) return;
+            
+            // Create bounds from coordinates
+            const bounds = coordinates.reduce((bounds, coord) => {
+                return bounds.extend(coord);
+            }, map.getBounds().pad(-0.9)); // Start with a small initial bounds
+            
+            // Calculate center and zoom that would fit these bounds
+            const center = bounds.getCenter();
+            const zoom = map.getBoundsZoom(bounds, false, new Point(padding?.x || 0, padding?.y || 0));
+            
+            // Smoothly fly to the new view
+            if (padding) {
+                map.setView(center, zoom, {
+                    duration: 0.5,
+                });
+            } else {
+                map.flyTo(center, zoom, {
+                    duration: 0.5
+                });
+            }
+        }
+    }));
+
+    return null;
+});
+
+const Map = forwardRef<MapRef, MapProps>(({ 
+    locations, 
+    center, 
+    depotLocation, 
+    routes, 
+    config 
+}, ref) => {
     const getVehicleColor = (vehicleIndex: number) => VEHICLE_COLORS[vehicleIndex % VEHICLE_COLORS.length];
 
     return (
@@ -30,6 +84,7 @@ export default function Map({ locations, center, depotLocation, routes, config }
             zoom={config.zoom_level}
             className="h-full w-full z-0"
         >
+            <MapController ref={ref} />
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -143,4 +198,6 @@ export default function Map({ locations, center, depotLocation, routes, config }
             )}
         </MapContainer>
     );
-}
+});
+
+export default Map;

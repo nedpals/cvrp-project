@@ -4,6 +4,8 @@ import { useState } from 'react';
 
 interface ResultsCardProps {
   routes: RouteResponse[];
+  onZoomToLocation: (coordinates: [number, number]) => void;
+  onZoomToTrip: (stops: StopInfo[]) => void;
 }
 
 const formatDuration = (seconds: number) => {
@@ -15,7 +17,11 @@ const formatDuration = (seconds: number) => {
   return `${minutes}m`;
 };
 
-export default function ResultsCard({ routes }: ResultsCardProps) {
+export default function ResultsCard({ 
+  routes, 
+  onZoomToLocation,
+  onZoomToTrip
+}: ResultsCardProps) {
   const {
     activeVehicles,
     activeTrips,
@@ -85,6 +91,14 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
       tripMap.get(stop.trip_number).push(stop);
     });
     return tripMap;
+  };
+
+  const isStopActive = (stop: StopInfo) => {
+    return activeTrips.has(stop.trip_number) && 
+           currentRoute.vehicle_routes.some(vr => 
+             activeVehicles.has(vr.vehicle_id) && 
+             vr.stops.some(s => s.trip_number === stop.trip_number)
+           );
   };
 
   return (
@@ -176,7 +190,10 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
                     <div key={tripNumber} className="rounded-lg border border-gray-100">
                       <div className="flex items-center justify-between p-2">
                         <button
-                          onClick={() => toggleTripExpansion(+tripNumber)}
+                          onClick={() => {
+                            toggleTripExpansion(+tripNumber);
+                            onZoomToTrip(stops);
+                          }}
                           className="flex items-center gap-2 flex-1"
                         >
                           <svg
@@ -207,26 +224,42 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
                       
                       {expandedTrips.has(+tripNumber) && (
                         <div className="border-t border-gray-100 divide-y divide-gray-50">
-                          {stops.map((stop: StopInfo) => (
-                            <div
-                              key={stop.sequence_number}
-                              className="p-2 hover:bg-gray-50/50"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-medium border border-blue-100">
-                                  {stop.sequence_number}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-gray-900 text-xs truncate">
-                                    {stop.name}
+                          {stops.map((stop: StopInfo) => {
+                            const isActive = isStopActive(stop);
+                            return (
+                              <div
+                                key={stop.sequence_number}
+                                className={`p-2 transition-colors ${
+                                  isActive 
+                                    ? 'hover:bg-gray-50/50 cursor-pointer' 
+                                    : 'opacity-50 cursor-not-allowed'
+                                }`}
+                                onClick={() => isActive && onZoomToLocation(stop.coordinates)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium ${
+                                    isActive
+                                      ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                                      : 'bg-gray-50 text-gray-400 border border-gray-200'
+                                  }`}>
+                                    {stop.sequence_number}
                                   </div>
-                                  <div className="text-[10px] text-gray-500">
-                                    Collection: {stop.wco_amount}L
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`font-medium text-xs truncate ${
+                                      isActive ? 'text-gray-900' : 'text-gray-400'
+                                    }`}>
+                                      {stop.name}
+                                    </div>
+                                    <div className={`text-[10px] ${
+                                      isActive ? 'text-gray-500' : 'text-gray-400'
+                                    }`}>
+                                      Collection: {stop.wco_amount}L
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>

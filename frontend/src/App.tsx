@@ -3,17 +3,19 @@ import Map from './components/Map';
 import { useConfig } from './hooks/useConfig';
 import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
-import { ConfigRequest, RouteResponse } from './types/models';
-import { useEffect, useMemo } from 'react';
+import { ConfigRequest, RouteResponse, StopInfo } from './types/models';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFilterStore } from './stores/filterStore';
 import ResultsCard from './components/ResultsCard';
 import { useConfigStore } from './stores/configStore';
+import { MapRef } from './types/map';
 
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
   const { depotLat, depotLng } = useConfigStore();
   const { locations, addLocation, removeLocation } = useLocations();
   const { routes, isLoading: isOptimizing, generateRoutes } = useOptimizeRoutes();
+  const mapRef = useRef<MapRef>(null);
 
   const {
     activeVehicles,
@@ -76,12 +78,30 @@ function App() {
     }
   };
 
+  const handleZoomToCoordinates = (coordinates: [number, number], zoom = 16) => {
+    // Offset to account for the right panels (320px total)
+    const offset = {
+      x: 160, // Move view left by half the panel width
+      y: 0
+    };
+    mapRef.current?.zoomTo(coordinates, zoom, offset);
+  };
+
+  const handleZoomToTrip = (stops: StopInfo[]) => {
+    const padding = {
+      x: 160, // Half the panel width
+      y: 40  // Top/bottom padding
+    };
+    mapRef.current?.fitBounds(stops.map(stop => stop.coordinates), padding);
+  };
+
   return (
     <div className="h-screen w-screen relative">
       {/* Full-screen map */}
       <div className="absolute inset-0 z-0">
         {visualConfig ? (
           <Map
+            ref={mapRef}
             locations={activeLocations}
             depotLocation={[parseFloat(depotLat), parseFloat(depotLng)]}
             center={mapCenter}
@@ -99,7 +119,11 @@ function App() {
       <div className="absolute top-4 right-0 pr-4 pb-4 h-full z-[1000] flex gap-3">
         {/* Results Card */}
         <div className="w-80 pointer-events-auto">
-          <ResultsCard routes={routes ?? []} />
+          <ResultsCard 
+            routes={routes ?? []} 
+            onZoomToLocation={handleZoomToCoordinates}
+            onZoomToTrip={handleZoomToTrip}
+          />
         </div>
 
         {/* Config Cards */}
