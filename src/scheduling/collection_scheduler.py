@@ -15,7 +15,7 @@ class CollectionScheduler:
         self.locations = locations
         self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
-        self.MAX_COLLECTION_TIME = 7 * 60  # Total working day in minutes
+        self.MAX_DAILY_TIME = 7 * 60  # Total working day in minutes
         self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
         self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
         self.SPEED_KPH = AVERAGE_SPEED_KPH
@@ -139,8 +139,7 @@ class CollectionScheduler:
         missing = [loc for loc in locations if loc.id not in assigned_ids]
         return missing
 
-    def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None,
-                                    collection_tracker: Optional[TripCollection] = None) -> List[List[Location]]:
+    def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None) -> List[List[Location]]:
         if not locations:
             return [[] for _ in vehicles]
             
@@ -180,7 +179,7 @@ class CollectionScheduler:
                 
                 for v_idx, vehicle in enumerate(vehicles):
                     remaining_capacity = vehicle.get_remaining_capacity(vehicle_loads[v_idx])
-                    if remaining_capacity < location.wco_amount:
+                    if location.wco_amount > remaining_capacity:
                         continue
                         
                     # Calculate time and load scores with both time constraints
@@ -204,7 +203,7 @@ class CollectionScheduler:
                     
                     # Check both time constraints with travel time included
                     if (collection_time > self.MAX_STOP_TIME or 
-                        total_time > self.MAX_COLLECTION_TIME):
+                        total_time > self.MAX_DAILY_TIME):
                         continue
                         
                     if travel_time > self.MAX_TRAVEL_TIME:
@@ -212,7 +211,7 @@ class CollectionScheduler:
                     
                     # Calculate assignment score considering traffic
                     capacity_ratio = location.wco_amount / remaining_capacity
-                    time_ratio = total_time / self.MAX_COLLECTION_TIME
+                    time_ratio = total_time / self.MAX_DAILY_TIME
                     traffic_factor = 1.0 / (1 + (travel_time / 60))  # Convert to hours
 
                     # Combined score (higher is better)
@@ -248,7 +247,7 @@ class CollectionScheduler:
                 assigned = False
                 for v_idx, vehicle in enumerate(vehicles):
                     if (vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity and
-                        vehicle_times[v_idx] + self.clusterer.estimate_collection_time(location) <= self.MAX_COLLECTION_TIME):
+                        vehicle_times[v_idx] + self.clusterer.estimate_collection_time(location) <= self.MAX_DAILY_TIME):
                         assignments[v_idx].append(location)
                         vehicle_loads[v_idx] += location.wco_amount
                         vehicle_times[v_idx] += self.clusterer.estimate_collection_time(location)
@@ -311,24 +310,81 @@ class CollectionScheduler:
         """Check if two schedules can have overlapping collection days"""
         return freq1 % freq2 == 0 or freq2 % freq1 == 0
 
-    def _balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int) -> Dict[int, List[Location]]:
-        """Balance locations across multiple days if they can't all be serviced in one day"""
+    def balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int) -> Dict[int, List[Location]]:
+        """Balance locations across multiple days, allowing multiple trips per day within time constraints"""
         balanced_days: Dict[int, List[Location]] = {original_day: []}
         remaining = locations.copy()
         current_day = original_day
         
+        # Track vehicle daily times
+        vehicle_daily_times = {v.id: 0.0 for v in vehicles}
+        vehicle_daily_trips = {v.id: 0 for v in vehicles}
+        
         while remaining:
-            # Try to assign as many locations as possible to current day
-            assignments = self.optimize_vehicle_assignments(vehicles, current_day, remaining)
-            assigned_locations = {loc for vehicle_locs in assignments for loc in vehicle_locs}
+            available_vehicles = [
+                v for v in vehicles 
+                if vehicle_daily_times[v.id] < self.MAX_DAILY_TIME
+            ]
             
-            if not assigned_locations:
-                # If no locations could be assigned, move to next day
+            if not available_vehicles:
+                # All vehicles have reached their daily time limit, move to next day
                 current_day += 1
                 balanced_days[current_day] = []
-                print(f"Moving to next day {current_day} due to capacity/time constraints")
+                vehicle_daily_times = {v.id: 0.0 for v in vehicles}
+                vehicle_daily_trips = {v.id: 0 for v in vehicles}
+                print(f"Moving to day {current_day} - all vehicles reached daily time limit")
                 continue
-            
+                
+            # Try to assign locations to available vehicles for new trips
+            assignments = self.optimize_vehicle_assignments(
+                available_vehicles, 
+                current_day, 
+                remaining
+            )
+
+            assigned_locations = set()
+            for v_idx, vehicle_locs in enumerate(assignments):
+                if not vehicle_locs:
+                    continue
+                    
+                vehicle = available_vehicles[v_idx]
+                vehicle_daily_trips[vehicle.id] += 1
+                
+                # Calculate total time for this trip including travel time
+                trip_time = 0.0
+                prev_loc = None
+                
+                for loc in vehicle_locs:
+                    # Collection time
+                    collection_time = self.clusterer.estimate_collection_time(loc)
+                    
+                    # Travel time
+                    if prev_loc:
+                        distance = calculate_distance(prev_loc.coordinates, loc.coordinates)
+                        travel_time = self._estimate_travel_time(distance)
+                        trip_time += travel_time
+                    else:
+                        # First location - calculate from depot
+                        distance = calculate_distance(vehicle.depot_location, loc.coordinates)
+                        travel_time = self._estimate_travel_time(distance)
+                        trip_time += travel_time
+                    
+                    trip_time += collection_time
+                    prev_loc = loc
+                    assigned_locations.add(loc)
+                
+                # Update vehicle's daily time
+                vehicle_daily_times[vehicle.id] += trip_time
+                
+            if not assigned_locations:
+                # If no assignments possible with current vehicles/time constraints
+                current_day += 1
+                balanced_days[current_day] = []
+                vehicle_daily_times = {v.id: 0.0 for v in vehicles}
+                vehicle_daily_trips = {v.id: 0 for v in vehicles}
+                print(f"Moving to day {current_day} - no feasible assignments")
+                continue
+                
             # Record assignments for this day
             balanced_days[current_day].extend(assigned_locations)
             
@@ -336,11 +392,17 @@ class CollectionScheduler:
             remaining = [loc for loc in remaining if loc not in assigned_locations]
             
             if remaining:
-                current_day += 1
-                balanced_days[current_day] = []
-                print(f"Scheduled {len(assigned_locations)} locations for day {current_day-1}, "
-                      f"{len(remaining)} locations moved to next day")
+                print(f"Day {current_day}: Assigned {len(assigned_locations)} locations, "
+                      f"{len(remaining)} locations remaining")
+                for v in vehicles:
+                    trips = vehicle_daily_trips[v.id]
+                    time = vehicle_daily_times[v.id]
+                    print(f"Vehicle {v.id}: {trips} trips, {time:.1f} minutes used")
+            else:
+                print(f"Day {current_day}: Assigned all locations")
         
+        for day, locs in balanced_days.items():
+            print(f"[end] Day {day}: {len(locs)} locations assigned")
         return balanced_days
 
     def combine_daily_collections(self, schedule: ScheduleEntry, day: int) -> List[Location]:
@@ -355,7 +417,7 @@ class CollectionScheduler:
         ]
         
         # Balance locations across days if needed
-        balanced_assignments = self._balance_daily_collections(
+        balanced_assignments = self.balance_daily_collections(
             schedule_locations,
             self.vehicles,
             day

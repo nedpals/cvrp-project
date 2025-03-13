@@ -78,7 +78,7 @@ class CVRP:
             location_assignments = {}  # Track which day each location is assigned to
             
             # Get balanced daily assignments from scheduler
-            balanced_assignments = self.collection_scheduler._balance_daily_collections(
+            balanced_assignments = self.collection_scheduler.balance_daily_collections(
                 locations=schedule_locations,
                 vehicles=self.vehicles,
                 original_day=schedule.frequency
@@ -91,46 +91,48 @@ class CVRP:
                     
                 print(f"\nProcessing day {day} for {schedule.name}")
                 print(f"Assigned locations for day {day}: {len(day_locations)}")
-                
-                # Track day assignments
-                for loc in day_locations:
-                    location_assignments[loc.id] = day
-                
-                # Get vehicle assignments from scheduler
-                vehicle_assignments = self.collection_scheduler.optimize_vehicle_assignments(
-                    vehicles=self.vehicles,
-                    day=day,
-                    locations=day_locations,
-                    collection_tracker=collection_tracker
-                )
-                
-                # Register collections
-                for v_idx, assigned_locations in enumerate(vehicle_assignments):
-                    if not assigned_locations:
-                        continue
-                        
-                    vehicle = self.vehicles[v_idx]
-                    current_load = 0.0
-                    trip_number = 1
+
+                remaining_locations = day_locations.copy()
+                trip_number = 0
+
+                while len(remaining_locations) > 0:
+                    # Get vehicle assignments from scheduler
+                    vehicle_assignments = self.collection_scheduler.optimize_vehicle_assignments(
+                        vehicles=self.vehicles,
+                        day=day,
+                        locations=remaining_locations
+                    )
+
+                    if vehicle_assignments:
+                        trip_number += 1 # Increment trip number
                     
-                    for location in assigned_locations:
-                        # Register collection with tracker
-                        success = collection_tracker.register_collection(
-                            vehicle_id=vehicle.id,
-                            day=day,
-                            trip_number=trip_number,
-                            location=location,
-                            depot_location=vehicle.depot_location
-                        )
+                    # Register collections
+                    for v_idx, assigned_locations in enumerate(vehicle_assignments):
+                        if not assigned_locations:
+                            continue
+                            
+                        vehicle = self.vehicles[v_idx]
+                        current_load = 0.0
                         
-                        if success:
-                            current_load += location.wco_amount
-                            if current_load >= vehicle.capacity:
-                                trip_number += 1
-                                current_load = 0.0
-                                
-                        # Track processed locations
-                        processed_location_ids.add(location.id)
+                        for location in assigned_locations:
+                            location_assignments[location.id] = day
+
+                            # Register collection with tracker
+                            success = collection_tracker.register_collection(
+                                vehicle_id=vehicle.id,
+                                day=day,
+                                trip_number=trip_number,
+                                location=location,
+                                depot_location=vehicle.depot_location
+                            )
+                            
+                            if success:
+                                current_load += location.wco_amount
+   
+                            # Track processed locations
+                            processed_location_ids.add(location.id)
+
+                    remaining_locations = [loc for loc in remaining_locations if loc.id not in processed_location_ids]
             
             # Detailed verification of locations
             missing_locations = []
@@ -163,7 +165,7 @@ class CVRP:
                 print(f"\nTotal missed WCO: {total_missed_wco}L ({(total_missed_wco/sum(loc.wco_amount for loc in schedule_locations)*100):.1f}% of schedule total)")
                 print("\nPossible reasons:")
                 print("1. Vehicle capacity constraints")
-                print(f"2. Time budget constraints ({self.collection_scheduler.MAX_COLLECTION_TIME/60:.1f}-hour workday)")
+                print(f"2. Time budget constraints ({self.collection_scheduler.MAX_DAILY_TIME/60:.1f}-hour workday)")
                 print("3. Travel time constraints")
                 print(f"4. Distance from depot (check locations > {self.collection_scheduler.MAX_TRAVEL_TIME/60:.1f} hours away)")
             
