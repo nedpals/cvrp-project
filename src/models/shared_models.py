@@ -4,8 +4,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 
 # Traffic Constants
-AVERAGE_SPEED_KPH = 18.2  # Average speed in Davao City
-MINUTES_PER_10KM = 32.983  # 32 minutes and 59 seconds per 10km
+AVERAGE_SPEED_KPH = 30  # Average speed in Davao City
 
 # Add RouteConstraints class
 class RouteConstraints(BaseModel):
@@ -186,9 +185,13 @@ class RouteAnalysisResult:
     total_stops: int
     collection_day: int
     vehicle_routes: List[VehicleRouteInfo]
+    base_schedule_id: str = ""  # Add reference to original schedule
+    base_schedule_day: int = 0  # Add reference to base frequency day
 
     def __post_init__(self):
         if self.total_trips == 0:
             self.total_trips = sum(route.total_trips for route in self.vehicle_routes)
         if self.total_stops == 0:
             self.total_stops = sum(route.total_stops for route in self.vehicle_routes)
+        if not self.base_schedule_id:
+            self.base_schedule_id = self.schedule_id.split('_day')[0]  # Extract base ID from schedule_id

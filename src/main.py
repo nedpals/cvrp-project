@@ -135,36 +135,66 @@ class CvrpSystem:
         
         return registry
 
-    def save_analysis_results(self, cvrp: CVRP, results_list: List[Tuple[List[RouteAnalysisResult], TripCollection]]):
-        """Save analysis results to files for each schedule combination"""
-        for results, collection_tracker in results_list:
-            # Create combination name
-            combo_name = "_".join(result.schedule_id for result in results)
+    def save_analysis_results(self, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
+        """Save analysis results to files, organizing by schedule and day."""
+        # Group results by base schedule
+        schedule_groups = {}
+        for analysis in results:
+            base_id = analysis.base_schedule_id
+            if base_id not in schedule_groups:
+                schedule_groups[base_id] = []
+            schedule_groups[base_id].append(analysis)
+        
+        # Process each schedule group
+        for base_id, schedule_results in schedule_groups.items():
+            # Create schedule directory
+            schedule_dir = self.output_path / base_id
+            schedule_dir.mkdir(exist_ok=True)
             
-            for analysis in results:
-                # Create and save visualization
+            print(f"\nProcessing results for schedule {base_id}:")
+            
+            # Save each day's results
+            for analysis in sorted(schedule_results, key=lambda x: x.collection_day):
+                day = analysis.collection_day
+                print(f"  Saving day {day} results...")
+                
+                # Create visualization
                 visualizer = RouteVisualizer(
-                    center_coordinates=self.config.depot_location, 
+                    center_coordinates=self.config.depot_location,
                     api_key=self.api_key
                 )
                 visualizer.add_routes(analysis)
-                visualizer.save(self.output_path / f"routes_{combo_name}.html", analysis)
                 
-                # Get computed road paths from the visualizer and add to the analysis
+                # Save visualization and data
+                visualizer.save(schedule_dir / f"routes_day{day}.html", analysis)
+                with open(schedule_dir / f"analysis_day{day}.json", 'w') as f:
+                    json.dump(analysis, f, indent=2, cls=DateTimeEncoder)
+                
+                # Add road paths to analysis
                 computed_paths = visualizer.get_computed_paths()
                 if analysis.schedule_id in computed_paths:
                     for vehicle_route in analysis.vehicle_routes:
                         if vehicle_route.vehicle_id in computed_paths[analysis.schedule_id]:
                             vehicle_route.road_paths = computed_paths[analysis.schedule_id][vehicle_route.vehicle_id]
-
-                # Save analysis data to JSON file            
-                with open(self.output_path / f"routes_{combo_name}.json", 'w') as f:
-                    json.dump(analysis, f, indent=2, cls=DateTimeEncoder)
-                print(f"\nAnalysis data saved for {analysis.schedule_name} in combination {combo_name}")
             
-            # Print daily summaries for this combination
-            print(f"\nDaily summaries for combination {combo_name}:")
-            cvrp.print_daily_summaries(collection_tracker)
+            # Create schedule summary
+            summary = {
+                'schedule_id': base_id,
+                'total_days': len(schedule_results),
+                'days': [day.collection_day for day in schedule_results],
+                'total_locations': sum(day.total_locations for day in schedule_results),
+                'total_distance': sum(day.total_distance for day in schedule_results),
+                'total_collected': sum(day.total_collected for day in schedule_results)
+            }
+            
+            with open(schedule_dir / 'schedule_summary.json', 'w') as f:
+                json.dump(summary, f, indent=2)
+            
+            print(f"  Summary: {len(schedule_results)} days, {summary['total_locations']} locations")
+        
+        # Print daily summaries
+        print("\nDaily Route Summaries:")
+        cvrp.print_daily_summaries(collection_tracker)
 
     def run(self):
         args = self.parse_args()
@@ -212,15 +242,15 @@ class CvrpSystem:
         )
 
         try:
-            # Process all schedule combinations using CVRP
-            all_results = cvrp.process_all_combinations(
+            # Process schedules independently
+            results, collection_tracker = cvrp.process(
                 schedule_entries=self.config.schedules,
                 locations=locations,
                 with_scheduling=not args.disable_scheduling
             )
             
-            # Save all results
-            self.save_analysis_results(cvrp, all_results)
+            # Save results
+            self.save_analysis_results(cvrp, results, collection_tracker)
 
         except Exception as e:
             print(f"Error processing schedules: {e}")

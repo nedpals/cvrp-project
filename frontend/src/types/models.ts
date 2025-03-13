@@ -121,6 +121,5 @@ export const FREQUENCY_PRESETS: FrequencyPreset[] = [
 ];
 
 export const TRAFFIC_CONSTANTS = {
-    AVERAGE_SPEED_KPH: 18.2,
-    MINUTES_PER_10KM: 32.983
+    AVERAGE_SPEED_KPH: 30,
 } as const;

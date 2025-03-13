@@ -16,6 +16,7 @@ class CVRP:
         self.allow_multiple_trips = allow_multiple_trips
         self.constraints = constraints or RouteConstraints(one_way_roads=[])
         self.max_trips_per_day = 5  # Limit trips per day per vehicle
+        self.collection_scheduler = None  # Will be initialized during process
 
     def _initialize_location_registry(self, locations: LocationRegistry) -> LocationRegistry:
         """Initialize location registry with depot distances"""
@@ -27,262 +28,108 @@ class CVRP:
         
         return locations
         
-    def _generate_schedule_combinations(self, schedule_entries: List[ScheduleEntry]) -> List[List[ScheduleEntry]]:
-        """Generate schedule combinations based on frequency overlaps"""
-        # Sort schedules by frequency to ensure consistent ordering
-        sorted_entries = sorted(schedule_entries, key=lambda x: x.frequency)
-        
-        # Group schedules by frequency
-        frequency_groups = {}
-        for entry in sorted_entries:
-            if entry.frequency not in frequency_groups:
-                frequency_groups[entry.frequency] = []
-            frequency_groups[entry.frequency].append(entry)
-            
-        combinations_list = []
-        frequencies = sorted(frequency_groups.keys())
-        
-        # Add individual frequency groups
-        for freq in frequencies:
-            combinations_list.append(frequency_groups[freq])
-        
-        # Find overlapping schedules
-        # For example: if weekly=7 and bi-weekly=14, they overlap
-        overlapping_groups = []
-        for i, freq1 in enumerate(frequencies):
-            overlapping = []
-            for freq2 in frequencies[i+1:]:
-                # Check if frequencies share common multiples within a reasonable range
-                # Using least common multiple (LCM) would be more precise but this is simpler
-                if freq2 % freq1 == 0 or freq1 % freq2 == 0:
-                    overlapping.extend(frequency_groups[freq2])
-            
-            if overlapping:
-                combined_group = frequency_groups[freq1].copy()
-                combined_group.extend(overlapping)
-                overlapping_groups.append(combined_group)
-        
-        combinations_list.extend(overlapping_groups)
-        
-        # Log the combinations being processed
-        for combo in combinations_list:
-            combo_desc = " + ".join(f"{s.name}({s.frequency}d)" for s in combo)
-            print(f"Generated combination: {combo_desc}")
-            
-        return combinations_list
-        
-    def process_all_combinations(self, schedule_entries: List[ScheduleEntry], 
-                               locations: LocationRegistry, 
-                               with_scheduling: bool = True) -> List[Tuple[List[RouteAnalysisResult], TripCollection]]:
-        """Process each schedule combination separately"""
-        schedule_combinations = self._generate_schedule_combinations(schedule_entries)
-        all_results = []
-        
-        for schedule_group in schedule_combinations:
-            # Create descriptive name for this combination
-            group_name = " + ".join(f"{s.name}" for s in schedule_group)
-            print(f"\n{'='*80}\nProcessing schedule combination: {group_name}\n{'='*80}")
-            
-            # Process this combination
-            results, collection_tracker = self.process(
-                schedule_entries=schedule_group,
-                locations=locations,
-                with_scheduling=with_scheduling
-            )
-            
-            all_results.append((results, collection_tracker))
-            
-        return all_results
-
     def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True) -> Tuple[List[RouteAnalysisResult], TripCollection]:
-        """Process one or more schedules together, handling both single and combined cases."""
-        # Reset location registry for new schedule group
+        """Process schedules independently.
+        
+        Each schedule is processed separately and may span multiple days if needed based on:
+        - Vehicle capacity constraints
+        - Time budget constraints (8-hour workday)
+        - Travel time between locations
+        
+        Args:
+            schedule_entries: Collection schedules to process
+            locations: Registry of all locations
+            with_scheduling: Whether to use scheduler (kept for backwards compatibility)
+            
+        Returns:
+            Tuple of (analysis_results, collection_tracker)
+        """
+        # Initialize location registry for new schedule group
         location_registry = self._initialize_location_registry(locations)
-        is_combined = len(schedule_entries) > 1
-        schedule_names = ', '.join(s.name for s in schedule_entries)
-        print(f"\nProcessing {'combined' if is_combined else 'single'} schedule: {schedule_names}")
-        print(f"Total locations: {len(location_registry)}")
+        collection_tracker = TripCollection()
+        results: List[RouteAnalysisResult] = []
 
-        # Initialize scheduler with vehicles
-        scheduler = CollectionScheduler(
-            location_registry, 
-            schedule_entries,
-            vehicles=self.vehicles,  # Pass vehicles to scheduler
+        # Initialize scheduler once for all schedules
+        self.collection_scheduler = CollectionScheduler(
+            locations=location_registry,
+            schedules=schedule_entries,
+            vehicles=self.vehicles,
             simulation_days=30
         )
 
-        # Create a collection tracker to store all collections
-        collection_tracker = TripCollection()
-        
-        if with_scheduling:
-            print("Using schedule-based optimization")
+        # Process each schedule independently
+        for schedule in schedule_entries:
+            print(f"\nProcessing schedule: {schedule.name} (Frequency: {schedule.frequency} days)")
             
-            # Process each day
-            processed_days = set()
-            unprocessed_locations = []
-            day = 1
+            # Get locations for this schedule
+            schedule_locations = [
+                loc for loc in location_registry.get_all()
+                if loc.disposal_schedule == schedule.frequency
+            ]
             
-            while day <= scheduler.simulation_days:
-                if day in processed_days:
-                    day += 1
-                    continue
-
-                print(f"\nProcessing Day {day}")
-                daily_locations = scheduler.combine_daily_collections(schedule_entries, day)
+            if not schedule_locations:
+                print(f"No locations found for schedule {schedule.name}")
+                continue
                 
-                if not daily_locations:
-                    day += 1
+            print(f"Found {len(schedule_locations)} locations for {schedule.name}")
+            
+            # Get balanced daily assignments from scheduler
+            balanced_assignments = self.collection_scheduler._balance_daily_collections(
+                locations=schedule_locations,
+                vehicles=self.vehicles,
+                original_day=schedule.frequency
+            )
+
+            # Process each day's assignments
+            for day, day_locations in balanced_assignments.items():
+                if not day_locations:
                     continue
-
-                # Get balanced assignments across days
-                balanced_assignments = scheduler._balance_daily_collections(
-                    daily_locations,
-                    self.vehicles,
-                    day
+                    
+                print(f"\nProcessing day {day} for {schedule.name}")
+                print(f"Locations to process: {len(day_locations)}")
+                
+                # Get vehicle assignments from scheduler
+                vehicle_assignments = self.collection_scheduler.optimize_vehicle_assignments(
+                    vehicles=self.vehicles,
+                    day=day,
+                    locations=day_locations,
+                    collection_tracker=collection_tracker
                 )
-
-                # Process each day's assignments
-                for assigned_day, locations in balanced_assignments.items():
-                    if not locations:
+                
+                # Register collections
+                for v_idx, assigned_locations in enumerate(vehicle_assignments):
+                    if not assigned_locations:
                         continue
                         
-                    processed_days.add(assigned_day)
-                    print(f"\nProcessing balanced assignments for day {assigned_day}")
+                    vehicle = self.vehicles[v_idx]
+                    current_load = 0.0
+                    trip_number = 1
                     
-                    # Initialize routes tracking per vehicle
-                    vehicle_routes = {vehicle.id: [] for vehicle in self.vehicles}
-                    vehicle_trip_counts = {vehicle.id: 0 for vehicle in self.vehicles}
-                    
-                    # Handle multiple trips if enabled
-                    remaining_locations = locations.copy()
-                    while remaining_locations and self.allow_multiple_trips:
-                        available_vehicles = [v for v in self.vehicles 
-                                            if vehicle_trip_counts[v.id] < self.max_trips_per_day]
-                        
-                        if not available_vehicles:
-                            print(f"All vehicles reached maximum trips ({self.max_trips_per_day}) for day {day}")
-                            unprocessed_locations.extend(remaining_locations)
-                            break
-
-                        trip_number = max(vehicle_trip_counts.values()) + 1
-                        print(f"\nProcessing Trip #{trip_number}")
-                        print(f"Remaining locations: {len(remaining_locations)}")
-                        
-                        # Get assignments for this trip
-                        vehicle_assignments = scheduler.optimize_vehicle_assignments(
-                            available_vehicles,
-                            day, 
-                            remaining_locations,
-                            collection_tracker
+                    for location in assigned_locations:
+                        # Register collection with tracker
+                        success = collection_tracker.register_collection(
+                            vehicle_id=vehicle.id,
+                            day=day,
+                            trip_number=trip_number,
+                            location=location,
+                            depot_location=vehicle.depot_location
                         )
                         
-                        # Process assignments and update remaining locations
-                        newly_assigned = set()
-                        for vehicle_idx, assigned_locations in enumerate(vehicle_assignments):
-                            if assigned_locations:
-                                vehicle = available_vehicles[vehicle_idx]
-                                vehicle_trip_counts[vehicle.id] += 1
-                                
-                                # Process route and register collections
-                                solver = self.solver_class(assigned_locations, [vehicle], self.constraints)
-                                route = solver.solve()[0]
-                                
-                                for location in route:
-                                    if location is None or location.id in newly_assigned:
-                                        continue
-                                        
-                                    success = collection_tracker.register_collection(
-                                        vehicle_id=vehicle.id,
-                                        day=day,
-                                        trip_number=trip_number,
-                                        location=location
-                                    )
-                                    
-                                    if success:
-                                        newly_assigned.add(location.id)
-                        
-                        # Update remaining locations
-                        remaining_locations = [loc for loc in remaining_locations 
-                                            if loc.id not in newly_assigned]
-                        
-                        if not newly_assigned:
-                            print("No new assignments made, breaking to avoid infinite loop")
-                            unprocessed_locations.extend(remaining_locations)
-                            break
-
-                day += 1
-
-        else:
-            # Non-scheduled processing
-            print("Warning: Running without schedule optimization")
-            solver: BaseSolver = self.solver_class(location_registry.get_all(), self.vehicles, self.constraints)
-            all_route_locs = solver.solve()
+                        if success:
+                            current_load += location.wco_amount
+                            if current_load >= vehicle.capacity:
+                                trip_number += 1
+                                current_load = 0.0
             
-            # Process routes
-            for vehicle_idx, route in enumerate(all_route_locs):
-                vehicle = self.vehicles[vehicle_idx]
-                vehicle.remaining_capacity = vehicle.capacity
-                
-                for location in route:
-                    if location is None:  # Skip depot markers
-                        continue
-
-                    # Register collection with the tracker instead of vehicle
-                    success = collection_tracker.register_collection(
-                        vehicle_id=vehicle.id,
-                        day=day, 
-                        trip_number=trip_number,
-                        location=location,
-                        depot_location=vehicle.depot_location
-                    )
-                    
-                    if success:
-                        current_load += location.wco_amount
-                        print(f"Collected {location.wco_amount}L from {location.name}, Remaining capacity: {vehicle.capacity - current_load:.2f}L")
-                    else:
-                        print(f"Warning: Collection failed at {location.name}")
-
-        # Check and repair coverage
-        sorted_schedule_entries = sorted(schedule_entries, key=lambda s: s.frequency)
-        results: list[RouteAnalysisResult] = []
-
-        for schedule_entry in sorted_schedule_entries:
-            print(f"\nChecking coverage for {schedule_entry.name}")
-
-            found_collections = [
-                collection 
-                for collection in collection_tracker.vehicle_collections.values()
-                if collection.day == schedule_entry.frequency
-            ]
-
-            daily_locations = LocationRegistry(scheduler.combine_daily_collections(sorted_schedule_entries, schedule_entry.frequency))
-
-            # Recheck final coverage
-            missing, duplicates = self._check_location_coverage(found_collections, daily_locations)
-            if missing or duplicates:
-                if missing:
-                    print("\nRemaining missing locations:")
-                    for loc_id in missing:
-                        location = location_registry.get_by_id(loc_id)
-                        if location:
-                            print(f"- {location.str()}")
-                if duplicates:
-                    print("\nRemaining duplicate visits:")
-                    for loc_id in duplicates:
-                        location = location_registry.get_by_id(loc_id)
-                        if location:
-                            print(f"- {location.str()}")
-            else:
-                print("\nFinal coverage check passed: All locations visited exactly once")
-
-            # Generate visualizations and analysis
-            results.append(self.generate_analysis_data(
-                schedule_id=schedule_entry.id,
-                schedule_name=schedule_entry.name,
+            # Generate analysis for all days of this schedule
+            schedule_results = self.generate_analysis_data(
+                schedule_id=schedule.id,
+                schedule_name=schedule.name,
                 collection_tracker=collection_tracker,
                 locations=location_registry,
-                day=schedule_entry.frequency
-            ))
+                base_day=schedule.frequency
+            )
+            results.extend(schedule_results)
 
         return results, collection_tracker
 
@@ -322,77 +169,91 @@ class CVRP:
     def generate_analysis_data(self, schedule_id: str, schedule_name: str, 
                              collection_tracker: TripCollection,
                              locations: LocationRegistry,
-                             day: int) -> RouteAnalysisResult:
-        """Generate structured analysis data for the routes using collection tracker"""
-        vehicle_routes = []
-        total_distance = 0
-        total_collected = 0
-        total_locations = 0
+                             base_day: int) -> List[RouteAnalysisResult]:
+        """Generate analysis results for all days of a schedule."""
+        results = []
         
-        for vehicle in self.vehicles:
-            # Get route data from collection tracker for this vehicle and day
-            route = collection_tracker.get_vehicle_route(vehicle.id, day)
-            if not route.stops:
-                continue
+        # Find all days used for this schedule
+        schedule_days = sorted(set(
+            day for _, day, _ in collection_tracker.vehicle_collections.keys()
+            if day >= base_day  # Only include days from base day onwards
+        ))
+        
+        # Generate analysis for each day
+        for day in schedule_days:
+            vehicle_routes = []
+            total_distance = 0
+            total_collected = 0
+            total_locations = 0
+            
+            for vehicle in self.vehicles:
+                route = collection_tracker.get_vehicle_route(vehicle.id, day)
+                if not route.stops:
+                    continue
+                    
+                stops_data = []
+                vehicle_collected = 0
+
+                total_locations += len(route.stops)
                 
-            stops_data = []
-            vehicle_collected = 0
-
-            total_locations += len(route.stops)
-            
-            for i, stop in enumerate(route.stops):
-                location_data = locations.get_by_id(stop.location_id)
-                stop_info = StopInfo(
-                    name=stop.location_name,
-                    location_id=stop.location_id,
-                    coordinates=stop.coordinates,
-                    wco_amount=stop.amount_collected,
-                    trip_number=stop.trip_number,
-                    cumulative_load=stop.cumulative_load,
-                    remaining_capacity=stop.remaining_capacity,
-                    distance_from_depot=location_data.distance_from_depot,
-                    distance_from_prev=stop.distance_from_prev,
-                    vehicle_capacity=vehicle.capacity,
-                    sequence_number=i,
-                    collection_day=day  # Add collection day
+                for i, stop in enumerate(route.stops):
+                    location_data = locations.get_by_id(stop.location_id)
+                    stop_info = StopInfo(
+                        name=stop.location_name,
+                        location_id=stop.location_id,
+                        coordinates=stop.coordinates,
+                        wco_amount=stop.amount_collected,
+                        trip_number=stop.trip_number,
+                        cumulative_load=stop.cumulative_load,
+                        remaining_capacity=stop.remaining_capacity,
+                        distance_from_depot=location_data.distance_from_depot,
+                        distance_from_prev=stop.distance_from_prev,
+                        vehicle_capacity=vehicle.capacity,
+                        sequence_number=i,
+                        collection_day=day  # Add collection day
+                    )
+                    stops_data.append(stop_info)
+                    vehicle_collected += stop.amount_collected
+                
+                vehicle_route = VehicleRouteInfo(
+                    vehicle_id=vehicle.id,
+                    capacity=vehicle.capacity,
+                    total_stops=len(route.stops),
+                    total_trips=max(stop.trip_number for stop in route.stops) if route.stops else 1,
+                    total_distance=route.total_distance,
+                    total_collected=vehicle_collected,
+                    efficiency=vehicle_collected / vehicle.capacity if vehicle.capacity > 0 else 0,
+                    stops=stops_data,
+                    collection_day=day,  # Add collection day
+                    road_paths=[]  # Road paths will be added later by the visualizer
                 )
-                stops_data.append(stop_info)
-                vehicle_collected += stop.amount_collected
-            
-            vehicle_route = VehicleRouteInfo(
-                vehicle_id=vehicle.id,
-                capacity=vehicle.capacity,
-                total_stops=len(route.stops),
-                total_trips=max(stop.trip_number for stop in route.stops) if route.stops else 1,
-                total_distance=route.total_distance,
-                total_collected=vehicle_collected,
-                efficiency=vehicle_collected / vehicle.capacity if vehicle.capacity > 0 else 0,
-                stops=stops_data,
-                collection_day=day,  # Add collection day
-                road_paths=[]  # Road paths will be added later by the visualizer
-            )
 
-            vehicle_routes.append(vehicle_route)
-            total_distance += route.total_distance
-            total_collected += vehicle_collected
+                vehicle_routes.append(vehicle_route)
+                total_distance += route.total_distance
+                total_collected += vehicle_collected
+            
+            # Calculate totals across all vehicles
+            total_trips = sum(route.total_trips for route in vehicle_routes)
+            total_stops = sum(route.total_stops for route in vehicle_routes)
+            
+            day_result = RouteAnalysisResult(
+                schedule_id=f"{schedule_id}_day{day}",  # Unique ID for each day
+                schedule_name=f"{schedule_name} (Day {day})",  # Add day to name
+                date_generated=datetime.now(),
+                total_locations=total_locations - 1,
+                total_vehicles=len(self.vehicles),
+                total_distance=total_distance,
+                total_collected=total_collected,
+                total_trips=total_trips,
+                total_stops=total_stops,
+                collection_day=day,
+                vehicle_routes=vehicle_routes,
+                base_schedule_id=schedule_id,  # Add reference to original schedule
+                base_schedule_day=base_day     # Add reference to base frequency day
+            )
+            results.append(day_result)
         
-        # Calculate totals across all vehicles
-        total_trips = sum(route.total_trips for route in vehicle_routes)
-        total_stops = sum(route.total_stops for route in vehicle_routes)
-        
-        return RouteAnalysisResult(
-            schedule_id=schedule_id,
-            schedule_name=schedule_name,
-            date_generated=datetime.now(),
-            total_locations=total_locations - 1,  # Subtract depot
-            total_vehicles=len(self.vehicles),
-            total_distance=total_distance,
-            total_collected=total_collected,
-            total_trips=total_trips,
-            total_stops=total_stops,
-            collection_day=day,  # Add collection day
-            vehicle_routes=vehicle_routes,
-        )
+        return results
 
     def print_daily_summaries(self, collection_tracker: TripCollection):
         """Print summaries of daily routes and vehicle utilization"""

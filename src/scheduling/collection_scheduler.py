@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional, Iterable
 from models.location import Location, Vehicle
-from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH, MINUTES_PER_10KM
+from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH
 from models.location_registry import LocationRegistry
 from models.trip_collection import TripCollection
 from utils import calculate_distance
@@ -15,11 +15,10 @@ class CollectionScheduler:
         self.locations = locations
         self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
-        self.MAX_COLLECTION_TIME = 480  # Total working day in minutes
+        self.MAX_COLLECTION_TIME = 7 * 60  # Total working day in minutes
         self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
         self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
         self.SPEED_KPH = AVERAGE_SPEED_KPH
-        self.MINUTES_PER_10KM = MINUTES_PER_10KM
         self.MAX_TRAVEL_TIME = 240  # 4 hours max travel time
         
         # Calculate max simulation days needed based on schedules
