@@ -27,7 +27,7 @@ class CollectionScheduler:
         
         self.schedule_map = self._build_schedule_map()
         self.daily_visited_locations = {}
-        self.clusterer = GeographicClusterer()
+        self.clusterer = GeographicClusterer(max_time_per_stop=self.MAX_STOP_TIME)
         self.combine_schedules = combine_schedules
     
     def _build_frequency_map(self, schedules: Iterable[ScheduleEntry]) -> dict[int, int]:
