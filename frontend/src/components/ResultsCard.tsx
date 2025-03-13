@@ -5,6 +5,15 @@ interface ResultsCardProps {
   routes: RouteResponse[];
 }
 
+const formatDuration = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
+
 export default function ResultsCard({ routes }: ResultsCardProps) {
   const {
     activeVehicles,
@@ -76,7 +85,7 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
         {/* Route Stats */}
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Day {currentRoute.collection_day}</h2>
-          <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+          <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
             <div className="bg-blue-50 p-2 rounded">
               <span className="text-blue-700 font-medium">{currentRoute.total_stops}</span>
               <span className="text-gray-600 ml-1">stops</span>
@@ -92,6 +101,14 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
             <div className="bg-blue-50 p-2 rounded">
               <span className="text-blue-700 font-medium">{currentRoute.total_collected.toFixed(1)}</span>
               <span className="text-gray-600 ml-1">L collected</span>
+            </div>
+            <div className="bg-blue-50 p-2 rounded">
+              <span className="text-blue-700 font-medium">{formatDuration(currentRoute.total_collection_time)}</span>
+              <span className="text-gray-600 ml-1">collecting</span>
+            </div>
+            <div className="bg-blue-50 p-2 rounded">
+              <span className="text-blue-700 font-medium">{formatDuration(currentRoute.total_travel_time)}</span>
+              <span className="text-gray-600 ml-1">driving</span>
             </div>
           </div>
         </div>
@@ -112,9 +129,11 @@ export default function ResultsCard({ routes }: ResultsCardProps) {
                   <span className="font-medium">Vehicle {vr.vehicle_id}</span>
                   <span className="text-sm">{vr.efficiency.toFixed(1)}% efficient</span>
                 </div>
-                <div className="text-xs mt-1">
-                  <span className="mr-2">{vr.total_collected.toFixed(1)}L collected</span>
+                <div className="text-xs mt-1 flex flex-wrap gap-2">
+                  <span>{vr.total_collected.toFixed(1)}L collected</span>
                   <span>{vr.total_distance.toFixed(1)}km traveled</span>
+                  <span>{formatDuration(vr.total_collection_time)} collecting</span>
+                  <span>{formatDuration(vr.total_travel_time)} driving</span>
                 </div>
               </button>
 

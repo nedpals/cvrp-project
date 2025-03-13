@@ -55,6 +55,8 @@ export interface StopInfo {
     vehicle_capacity: number;
     sequence_number: number;
     collection_day: number;
+    collection_time: number;    // Collection time in seconds
+    travel_time: number;        // Travel time in seconds
 }
 
 export interface RoadPath {
@@ -86,6 +88,8 @@ export interface VehicleRouteInfo {
     road_paths: Record<string, RoadPath>[];
     combined_path: RoutePathInfo[];
     trip_paths: { [key: number]: RoutePathInfo[] };
+    total_collection_time: number;  // Total collection time in seconds
+    total_travel_time: number;      // Total travel time in seconds
 }
 
 export interface RouteResponse {
@@ -102,6 +106,8 @@ export interface RouteResponse {
     vehicle_routes: VehicleRouteInfo[];
     base_schedule_id: string;
     base_schedule_day: number;
+    total_collection_time: number;  // Total collection time in seconds
+    total_travel_time: number;      // Total travel time in seconds
 }
 
 export interface SolverInfo {
