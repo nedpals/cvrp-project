@@ -10,8 +10,11 @@ from clustering.geographic_clusterer import GeographicClusterer
 class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
 
-    def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], simulation_days: int = 30, combine_schedules: bool = False):
+    def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], 
+                 vehicles: List[Vehicle], simulation_days: int = 30, 
+                 combine_schedules: bool = False):
         self.locations = locations
+        self.vehicles = vehicles  # Add vehicles to class
         self.frequency_map = self._build_frequency_map(schedules)
         self.MAX_COLLECTION_TIME = 480  # Total working day in minutes
         self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
@@ -338,8 +341,40 @@ class CollectionScheduler:
         
         return overlapping
 
+    def _balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int) -> Dict[int, List[Location]]:
+        """Balance locations across multiple days if they can't all be serviced in one day"""
+        balanced_days: Dict[int, List[Location]] = {original_day: []}
+        remaining = locations.copy()
+        current_day = original_day
+        
+        while remaining:
+            # Try to assign as many locations as possible to current day
+            assignments = self.optimize_vehicle_assignments(vehicles, current_day, remaining)
+            assigned_locations = {loc for vehicle_locs in assignments for loc in vehicle_locs}
+            
+            if not assigned_locations:
+                # If no locations could be assigned, move to next day
+                current_day += 1
+                balanced_days[current_day] = []
+                print(f"Moving to next day {current_day} due to capacity/time constraints")
+                continue
+            
+            # Record assignments for this day
+            balanced_days[current_day].extend(assigned_locations)
+            
+            # Update remaining locations
+            remaining = [loc for loc in remaining if loc not in assigned_locations]
+            
+            if remaining:
+                current_day += 1
+                balanced_days[current_day] = []
+                print(f"Scheduled {len(assigned_locations)} locations for day {current_day-1}, "
+                      f"{len(remaining)} locations moved to next day")
+        
+        return balanced_days
+
     def combine_daily_collections(self, all_schedules: Set[ScheduleEntry], day: int) -> List[Location]:
-        """Combine collections from overlapping schedules for a day"""
+        """Combine collections from overlapping schedules for a day with balancing"""
         temp_registry = LocationRegistry()
         
         # Get schedules that overlap on this specific day
@@ -348,20 +383,36 @@ class CollectionScheduler:
         else:
             active_schedules = {s for s in all_schedules if s.frequency == day}
 
-        # Disable overlapping schedules for now
         if not active_schedules:
             return []
             
         print(f"Active schedules for day {day}: {[s.name for s in active_schedules]}")
         
+        # Collect all locations for this day
+        all_day_locations = []
         for schedule in active_schedules:
             schedule_locations = [
                 loc for loc in self.locations.get_all()
                 if loc.disposal_schedule == schedule.frequency 
                 and self.is_collection_day(loc, day)
             ]
-            
-            for location in schedule_locations:
-                temp_registry.add(location)
+            all_day_locations.extend(schedule_locations)
+
+        # Balance locations across days if needed
+        balanced_assignments = self._balance_daily_collections(
+            all_day_locations,
+            [v for v in self.vehicles],  # You'll need to add vehicles as class attribute
+            day
+        )
         
-        return temp_registry.get_all()
+        # Update schedule map with balanced assignments
+        for assigned_day, locations in balanced_assignments.items():
+            if assigned_day not in self.schedule_map:
+                self.schedule_map[assigned_day] = []
+            self.schedule_map[assigned_day].extend(locations)
+            
+            if assigned_day != day:
+                print(f"Moved {len(locations)} locations from day {day} to day {assigned_day}")
+        
+        # Return only locations for requested day
+        return balanced_assignments.get(day, [])

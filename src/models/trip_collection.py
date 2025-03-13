@@ -1,16 +1,13 @@
+from models.shared_models import CollectionData, VehicleRoute, Location
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Tuple
-from models.location import Location, Stop, VehicleRoute
+from typing import Dict, Tuple, Set
+from datetime import datetime
 from utils import calculate_distance
 
 @dataclass
 class TripCollection:
-    """
-    Tracks collections for specific vehicles on specific days and trips.
-    This class maintains collection data separately from the Vehicle class.
-    """
-    # Key structure: (vehicle_id, day, trip_number) -> collection data
-    vehicle_collections: Dict[Tuple[int, int, int], "CollectionData"] = field(default_factory=dict)
+    """Tracks collections for specific vehicles on specific days and trips"""
+    vehicle_collections: Dict[Tuple[int, int, int], CollectionData] = field(default_factory=dict)
     total_trips: int = 0
     total_stops: int = 0
     
@@ -35,7 +32,12 @@ class TripCollection:
             self.vehicle_collections[key] = CollectionData(
                 vehicle_id=vehicle_id,
                 day=day,
-                trip_number=trip_number
+                trip_number=trip_number,
+                visited_location_ids=set(),
+                total_collected=0.0,
+                total_distance=0.0,
+                stops=[],
+                collection_timestamp=datetime.now()
             )
         
         # Check if location already visited on this day
@@ -89,34 +91,3 @@ class TripCollection:
             initial_capacity=0.0,  # Will be set elsewhere
             total_collected=sum(stop.amount_collected for stop in stops)
         )
-
-@dataclass
-class CollectionData:
-    """Data for a single vehicle's collections on a specific day and trip"""
-    vehicle_id: int
-    day: int
-    trip_number: int
-    stops: List[Stop] = field(default_factory=list)
-    visited_location_ids: Set[str] = field(default_factory=set)
-    total_collected: float = 0.0
-    total_distance: float = 0.0
-    
-    def add_stop(self, location: Location, distance_from_previous: float) -> None:
-        """Add a stop for this collection"""
-        # Create stop
-        stop = Stop(
-            location_id=location.id,
-            location_name=location.name,
-            coordinates=location.coordinates,
-            amount_collected=location.wco_amount,
-            remaining_capacity=0.0,  # Will be calculated elsewhere
-            cumulative_load=self.total_collected + location.wco_amount,
-            trip_number=self.trip_number,
-            distance_from_prev=distance_from_previous
-        )
-        
-        # Add to stops list and update totals
-        self.stops.append(stop)
-        self.visited_location_ids.add(location.id)
-        self.total_collected += location.wco_amount
-        self.total_distance += distance_from_previous

@@ -1,32 +1,27 @@
 from models.shared_models import (
-    Location as SharedLocation,
-    Vehicle as SharedVehicle,
-    RouteConstraints as SharedRouteConstraints,
-    StopInfo
+    Location,
+    Vehicle,
+    RouteConstraints,
+    StopInfo,
+    Stop as SharedStop,
+    VehicleRoute as SharedVehicleRoute
 )
 from typing import List, Tuple
 from dataclasses import dataclass
 
-# For compatibility with existing code, create wrapper classes
-class Location(SharedLocation):
-    pass
-
-class Vehicle(SharedVehicle):
-    pass
-
-class RouteConstraints(SharedRouteConstraints):
-    pass
+# Re-export shared models
+__all__ = ['Location', 'Vehicle', 'Stop', 'VehicleRoute', 'RouteConstraints']
 
 @dataclass
-class VehicleRoute:
+class VehicleRoute(SharedVehicleRoute):
     vehicle_id: int
-    stops: List[StopInfo]
+    stops: List[StopInfo]  # Now using StopInfo from shared_models
     total_distance: float = 0.0
     initial_capacity: float = 0.0
     total_collected: float = 0.0
 
 @dataclass
-class Stop:
+class Stop(SharedStop):
     location_id: str
     location_name: str
     amount_collected: float

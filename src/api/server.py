@@ -4,11 +4,14 @@ import json
 from pathlib import Path
 from typing import List
 
-from .models import (
-    ConfigRequest, LocationRequest
+from models.shared_models import (
+    Location,
+    Vehicle,
+    RouteConstraints,
+    RouteAnalysisResult as RouteResponse,
+    ScheduleEntry
 )
-from models.shared_models import RouteResponse, ScheduleEntry
-from models.location import Location, Vehicle, RouteConstraints
+from .models import ConfigRequest
 from models.location_registry import LocationRegistry
 from cvrp import CVRP
 from solvers.or_tools_solver import ORToolsSolver
@@ -45,20 +48,13 @@ SOLVERS = {
 @app.post("/api/optimize", response_model=List[RouteResponse])
 async def optimize_routes(
     config: ConfigRequest,
-    locations: List[LocationRequest]
+    locations: List[Location]  # Changed from LocationRequest to Location
 ) -> List[RouteResponse]:
     try:
         # Convert locations to LocationRegistry
         location_registry = LocationRegistry()
         for loc in locations:
-            location = Location(
-                id=loc.id,
-                name=loc.name,
-                coordinates=loc.coordinates,
-                wco_amount=loc.wco_amount,
-                disposal_schedule=loc.disposal_schedule
-            )
-            location_registry.add(location)
+            location_registry.add(loc)  # No need for conversion since we're using Location directly
 
         # Create vehicles from config
         vehicles = [

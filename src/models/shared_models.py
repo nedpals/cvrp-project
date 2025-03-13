@@ -1,7 +1,13 @@
-from pydantic import BaseModel, Field
-from typing import List, Tuple, Dict, Optional, Any
+from pydantic import BaseModel
+from typing import List, Tuple, Dict, Optional, Any, Set
 from datetime import datetime
+from dataclasses import dataclass, field
 
+# Add RouteConstraints class
+class RouteConstraints(BaseModel):
+    one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
+
+# Core Models
 class Location(BaseModel):
     id: str
     name: str
@@ -9,7 +15,9 @@ class Location(BaseModel):
     wco_amount: float
     disposal_schedule: int
     distance_from_depot: float = 0.0
-    trip_number: int = 1
+
+    def __hash__(self):
+        return hash(self.id)
 
     def str(self):
         return f"{self.name} (ID: {self.id}, WCO: {self.wco_amount}L)"
@@ -47,24 +55,35 @@ class ScheduleEntry(BaseModel):
     class Config:
         frozen = True  # Make the model immutable and hashable
 
-class StopInfo(BaseModel):
-    name: str
+# Route and Stop Models
+@dataclass
+class Stop:
     location_id: str
-    coordinates: Tuple[float, float]
-    wco_amount: float
-    trip_number: int
-    cumulative_load: float
+    location_name: str
+    amount_collected: float
     remaining_capacity: float
-    sequence_number: int
-    location_id: Optional[str] = None
-    location_name: Optional[str] = None
-    amount_collected: Optional[float] = None
-    distance_from_depot: Optional[float] = None
-    vehicle_capacity: Optional[float] = None
-    distance_from_prev: Optional[float] = None  # Distance from previous stop
-    total_distance: Optional[float] = None      # Cumulative distance from start
+    coordinates: Tuple[float, float]
+    cumulative_load: float
+    trip_number: int = 1
+    collection_day: int = 1
+    distance_from_prev: float = 0.0
+    total_distance: float = 0.0
 
-class StopResponse(BaseModel):
+    def __hash__(self):
+        return hash(self.location_id)
+
+@dataclass
+class VehicleRoute:
+    vehicle_id: int
+    stops: List[Stop]
+    total_distance: float = 0.0
+    initial_capacity: float = 0.0
+    total_collected: float = 0.0
+    collection_day: int = 1
+
+@dataclass
+class StopInfo:
+    """Information about a single stop in a route"""
     name: str
     location_id: str
     coordinates: Tuple[float, float]
@@ -73,10 +92,69 @@ class StopResponse(BaseModel):
     cumulative_load: float
     remaining_capacity: float
     distance_from_depot: float
+    distance_from_prev: float
     vehicle_capacity: float
     sequence_number: int
+    collection_day: int
 
-class VehicleRouteInfo(BaseModel):
+# Collection Models
+@dataclass
+class CollectionStop:
+    location_id: str
+    location_name: str
+    coordinates: Tuple[float, float]
+    amount_collected: float
+    cumulative_load: float
+    remaining_capacity: float
+    distance_from_prev: float
+    trip_number: int
+    collection_day: int
+
+@dataclass
+class CollectionData:
+    vehicle_id: str
+    day: int
+    trip_number: int
+    visited_location_ids: Set[str]
+    total_collected: float
+    total_distance: float
+    stops: List[CollectionStop]
+    collection_timestamp: datetime
+
+    def add_stop(self, location: Location, distance_from_prev: float) -> None:
+        """Add a stop to the collection data"""
+        # Calculate cumulative load
+        current_load = sum(stop.amount_collected for stop in self.stops)
+        
+        # Create new stop
+        new_stop = CollectionStop(
+            location_id=location.id,
+            location_name=location.name,
+            coordinates=location.coordinates,
+            amount_collected=location.wco_amount,
+            cumulative_load=current_load + location.wco_amount,
+            remaining_capacity=0.0,  # Will be set by vehicle if needed
+            distance_from_prev=distance_from_prev,
+            trip_number=self.trip_number,
+            collection_day=self.day
+        )
+        
+        # Update collection data
+        self.stops.append(new_stop)
+        self.visited_location_ids.add(location.id)
+        self.total_collected += location.wco_amount
+        self.total_distance += distance_from_prev
+
+# Analysis Models
+@dataclass
+class RoutePathInfo:
+    from_coords: Tuple[float, float]
+    to_coords: Tuple[float, float]
+    path: List[List[float]]
+    trip_number: int = 0
+
+@dataclass
+class VehicleRouteInfo:
     vehicle_id: str
     capacity: float
     total_stops: int
@@ -84,31 +162,28 @@ class VehicleRouteInfo(BaseModel):
     total_distance: float
     total_collected: float
     efficiency: float
+    collection_day: int
     stops: List[StopInfo]
+    road_paths: List[Dict[str, Any]] = field(default_factory=list)
+    combined_path: List[RoutePathInfo] = field(default_factory=list)
+    trip_paths: Dict[int, List[RoutePathInfo]] = field(default_factory=dict)
 
-class VehicleRouteResponse(BaseModel):
-    vehicle_id: str
-    capacity: float
-    total_stops: int
-    total_trips: int
-    total_distance: float
-    total_collected: float
-    efficiency: float
-    stops: List[StopResponse]
-    road_paths: List[Dict[str, Any]] = []
-    trip_paths: Dict[int, List[Dict[str, Any]]] = {}
-
-class RouteResponse(BaseModel):
+@dataclass
+class RouteAnalysisResult:
     schedule_id: str
     schedule_name: str
     date_generated: datetime
-    total_stops: int
-    total_trips: int
     total_locations: int
     total_vehicles: int
     total_distance: float
     total_collected: float
-    vehicle_routes: List[VehicleRouteResponse]
+    total_trips: int
+    total_stops: int
+    collection_day: int
+    vehicle_routes: List[VehicleRouteInfo]
 
-class RouteConstraints(BaseModel):
-    one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
+    def __post_init__(self):
+        if self.total_trips == 0:
+            self.total_trips = sum(route.total_trips for route in self.vehicle_routes)
+        if self.total_stops == 0:
+            self.total_stops = sum(route.total_stops for route in self.vehicle_routes)
