@@ -29,6 +29,7 @@ export default function ConfigForm({
     const { schedules, setSchedules } = useSchedules();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [configError, setConfigError] = useState<string | null>(null);
+    const [openSections, setOpenSections] = useState<Set<string>>(new Set([]));
 
     const {
         depotLat,
@@ -125,210 +126,276 @@ export default function ConfigForm({
         removeOneWayRoad(index);
     };
 
+    const toggleSection = (section: string) => {
+        const newSections = new Set(openSections);
+        if (newSections.has(section)) {
+            newSections.delete(section);
+        } else {
+            newSections.add(section);
+        }
+        setOpenSections(newSections);
+    };
+
     return (
-        <div className="space-y-3 h-full flex flex-col">
+        <div className="space-y-2 h-full flex flex-col">
             {/* Route Configuration Card */}
-            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
-                <div className="flex flex-col space-y-2">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-base font-semibold text-gray-800">Route Configuration</h2>
-                        <div className="flex space-x-2">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200"
-                            >
-                                Import
-                            </button>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".json"
-                                onChange={handleConfigUpload}
-                                className="hidden"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleExportConfig}
-                                className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100"
-                            >
-                                Export
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {configError && (
-                        <div className="text-red-500 text-xs p-1.5 bg-red-50 rounded">
-                            {configError}
-                        </div>
-                    )}
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Depot Latitude</label>
-                            <input
-                                type="number"
-                                step="any"
-                                value={depotLat}
-                                onChange={(e) => setDepotLat(e.target.value)}
-                                className="w-full border p-1.5 text-sm rounded bg-white/80"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Depot Longitude</label>
-                            <input
-                                type="number"
-                                step="any"
-                                value={depotLng}
-                                onChange={(e) => setDepotLng(e.target.value)}
-                                className="w-full border p-1.5 text-sm rounded bg-white/80"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Solver Algorithm</label>
-                        <select
-                            value={solver}
-                            onChange={(e) => setSolver(e.target.value)}
-                            className="w-full border p-1.5 text-sm rounded bg-white/80"
+            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                    <h2 className="text-sm font-medium text-gray-900">Route Configuration</h2>
+                    <div className="flex gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-gray-100 hover:bg-gray-200 text-gray-700"
                         >
-                            {solvers.map(solver => (
-                                <option key={solver.id} value={solver.id} title={solver.description}>
-                                    {solver.name}
-                                </option>
-                            ))}
-                        </select>
+                            Import
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".json"
+                            onChange={handleConfigUpload}
+                            className="hidden"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleExportConfig}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                        >
+                            Export
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="divide-y divide-gray-100">
+                    <div className="p-3 space-y-3">
+                        {configError && (
+                            <div className="text-red-500 text-xs p-2 bg-red-50 rounded-lg border border-red-100">
+                                {configError}
+                            </div>
+                        )}
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-gray-700">Depot Latitude</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={depotLat}
+                                    onChange={(e) => setDepotLat(e.target.value)}
+                                    className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-gray-700">Depot Longitude</label>
+                                <input
+                                    type="number"
+                                    step="any"
+                                    value={depotLng}
+                                    onChange={(e) => setDepotLng(e.target.value)}
+                                    className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-700">Solver Algorithm</label>
+                            <select
+                                value={solver}
+                                onChange={(e) => setSolver(e.target.value)}
+                                className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                            >
+                                {solvers.map(solver => (
+                                    <option key={solver.id} value={solver.id} title={solver.description}>
+                                        {solver.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={isLoading || locations.length === 0}
+                            className={`w-full py-2 text-sm rounded-lg transition-all ${
+                                isLoading 
+                                    ? 'bg-gray-400 text-white cursor-not-allowed' 
+                                    : locations.length === 0
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm hover:shadow'
+                            }`}
+                        >
+                            {isLoading ? 'Calculating...' : 'Generate Routes'}
+                        </button>
                     </div>
 
-                    <button
-                        type="submit"
-                        disabled={isLoading || locations.length === 0}
-                        className={`w-full py-1.5 px-4 text-sm rounded transition-colors ${
-                            isLoading 
-                                ? 'bg-gray-400 text-white cursor-not-allowed' 
-                                : locations.length === 0
-                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                        }`}
-                    >
-                        {isLoading ? 'Calculating...' : 'Generate Routes'}
-                    </button>
+                    {/* Vehicles Section */}
+                    <div className="border-t border-gray-100">
+                        <button
+                            type="button"
+                            onClick={() => toggleSection('vehicles')}
+                            className="w-full px-3 py-2.5 flex justify-between items-center hover:bg-gray-50"
+                        >
+                            <span className="text-sm font-medium text-gray-900">Vehicles</span>
+                            <svg
+                                className={`w-5 h-5 text-gray-500 transition-transform ${
+                                    openSections.has('vehicles') ? 'rotate-180' : ''
+                                }`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {openSections.has('vehicles') && (
+                            <div className="p-3 space-y-2 bg-gray-50/50">
+                                {vehicles.map((vehicle, index) => (
+                                    <div key={vehicle.id} className="flex gap-2 items-center p-2 rounded-lg bg-gray-50/80 border border-gray-100">
+                                        <input
+                                            type="text"
+                                            value={vehicle.id}
+                                            onChange={(e) => updateVehicle(index, 'id', e.target.value)}
+                                            placeholder="ID"
+                                            className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                        />
+                                        <input
+                                            type="number"
+                                            value={vehicle.capacity}
+                                            onChange={(e) => updateVehicle(index, 'capacity', parseInt(e.target.value))}
+                                            placeholder="Capacity"
+                                            className="border border-gray-200 p-1.5 rounded-lg bg-white w-24 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => removeVehicle(index)}
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={addVehicle}
+                                    className="w-full py-2 text-sm rounded-lg transition-all border border-blue-500 text-blue-500 hover:bg-blue-50"
+                                >
+                                    Add Vehicle
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* One-Way Roads Section */}
+                    <div className="border-t border-gray-100">
+                        <button
+                            type="button"
+                            onClick={() => toggleSection('oneWayRoads')}
+                            className="w-full px-3 py-2.5 flex justify-between items-center hover:bg-gray-50"
+                        >
+                            <span className="text-sm font-medium text-gray-900">One-Way Roads</span>
+                            <svg
+                                className={`w-5 h-5 text-gray-500 transition-transform ${
+                                    openSections.has('oneWayRoads') ? 'rotate-180' : ''
+                                }`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {openSections.has('oneWayRoads') && (
+                            <div className="p-3 space-y-2 bg-gray-50/50">
+                                {oneWayRoads.map((road, roadIndex) => (
+                                    <div key={roadIndex} className="p-2 rounded-lg bg-gray-50/80 border border-gray-100 space-y-2">
+                                        <div className="flex gap-2 items-center">
+                                            <span className="text-xs font-medium text-gray-600 w-10">From</span>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={road[0][0]}
+                                                onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 0, e.target.value)}
+                                                placeholder="Lat"
+                                                className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                            />
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={road[0][1]}
+                                                onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 1, e.target.value)}
+                                                placeholder="Lng"
+                                                className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <span className="text-xs font-medium text-gray-600 w-10">To</span>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={road[1][0]}
+                                                onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 0, e.target.value)}
+                                                placeholder="Lat"
+                                                className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                            />
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                value={road[1][1]}
+                                                onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 1, e.target.value)}
+                                                placeholder="Lng"
+                                                className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveOneWayRoad(roadIndex)}
+                                                className="text-red-500 hover:text-red-600 hover:bg-red-50 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={handleAddOneWayRoad}
+                                    className="w-full py-2 text-sm rounded-lg transition-all border border-blue-500 text-blue-500 hover:bg-blue-50"
+                                >
+                                    Add One-Way Road
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </form>
 
-            {/* Vehicles Card */}
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
-                <h2 className="text-base font-semibold text-gray-800 mb-2">Vehicles</h2>
-                <div className="space-y-2">
-                    {vehicles.map((vehicle, index) => (
-                        <div key={vehicle.id} className="flex gap-2 items-center">
-                            <input
-                                type="text"
-                                value={vehicle.id}
-                                onChange={(e) => updateVehicle(index, 'id', e.target.value)}
-                                placeholder="ID"
-                                className="border p-1.5 rounded bg-white/80 flex-1 text-sm"
-                            />
-                            <input
-                                type="number"
-                                value={vehicle.capacity}
-                                onChange={(e) => updateVehicle(index, 'capacity', parseInt(e.target.value))}
-                                placeholder="Capacity"
-                                className="border p-1.5 rounded bg-white/80 w-20 text-sm"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => removeVehicle(index)}
-                                className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={addVehicle}
-                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
-                    >
-                        Add Vehicle
-                    </button>
-                </div>
-            </div>
-
-            {/* One-Way Roads Card */}
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg">
-                <h2 className="text-base font-semibold text-gray-800 mb-2">One-Way Roads</h2>
-                <div className="space-y-2">
-                    {oneWayRoads.map((road, roadIndex) => (
-                        <div key={roadIndex} className="p-2 border rounded bg-white/80">
-                            <div className="flex gap-2 items-center mb-2">
-                                <span className="text-xs font-medium">From</span>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[0][0]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 0, e.target.value)}
-                                    placeholder="Lat"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[0][1]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 0, 1, e.target.value)}
-                                    placeholder="Lng"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                            </div>
-                            <div className="flex gap-2 items-center">
-                                <span className="text-xs font-medium">To</span>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[1][0]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 0, e.target.value)}
-                                    placeholder="Lat"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={road[1][1]}
-                                    onChange={(e) => handleUpdateOneWayRoad(roadIndex, 1, 1, e.target.value)}
-                                    placeholder="Lng"
-                                    className="border p-1.5 rounded bg-white/80 w-24 text-sm"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemoveOneWayRoad(roadIndex)}
-                                    className="bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 focus:outline-none ml-auto"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={handleAddOneWayRoad}
-                        className="w-full border border-blue-500 text-blue-500 py-1 px-2 rounded text-sm hover:bg-blue-50"
-                    >
-                        Add One-Way Road
-                    </button>
-                </div>
-            </div>
-
             {/* Locations/Schedules Card */}
-            <div className="bg-white/95 backdrop-blur p-3 rounded-lg shadow-lg flex-1">
-                <p className="text-base font-semibold text-gray-800 mb-2">Locations & Schedules</p>
-                <ScheduleLocationsTab
-                    schedules={schedules}
-                    locations={locations}
-                    onUpdateSchedules={setSchedules}
-                    onAddLocation={onAddLocation}
-                    onRemoveLocation={onRemoveLocation}
-                />
+            <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden flex-1">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex justify-between items-center">
+                    <h2 className="text-sm font-medium text-gray-900">Locations & Schedules</h2>
+                    <button
+                        onClick={() => {
+                            const newSchedule = {
+                                id: `s${schedules.length + 1}`,
+                                name: `Schedule ${schedules.length + 1}`,
+                                frequency: 7,
+                                file: 'schedule.json'
+                            };
+                            setSchedules([...schedules, newSchedule]);
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                    >
+                        New Schedule
+                    </button>
+                </div>
+                <div className="p-3">
+                    <ScheduleLocationsTab
+                        schedules={schedules}
+                        locations={locations}
+                        onUpdateSchedules={setSchedules}
+                        onAddLocation={onAddLocation}
+                        onRemoveLocation={onRemoveLocation}
+                    />
+                </div>
             </div>
         </div>
     );

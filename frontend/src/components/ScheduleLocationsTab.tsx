@@ -34,17 +34,6 @@ export default function ScheduleLocationsTab({
 
     const [uploadError, setUploadError] = useState<string>();
 
-    const addSchedule = () => {
-        const newSchedule: ScheduleEntry = {
-            id: `s${schedules.length + 1}`,
-            name: `Schedule ${schedules.length + 1}`,
-            frequency: 7,
-            file: 'schedule.json'
-        };
-        onUpdateSchedules([...schedules, newSchedule]);
-        setCurrentSchedule(newSchedule.id);
-    };
-
     const updateSchedule = (index: number, field: keyof ScheduleEntry, value: unknown) => {
         const updatedSchedules = [...schedules];
         updatedSchedules[index] = { ...updatedSchedules[index], [field]: value };
@@ -119,32 +108,26 @@ export default function ScheduleLocationsTab({
 
     return (
         <div className="space-y-3">
-            {/* Schedule Selection */}
-            <div className="flex items-center space-x-1 overflow-x-auto pb-1 scrollbar-hide">
+            {/* Schedule Selection - remove the "+ New" button */}
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-hide">
                 {schedules.map((schedule) => (
                     <button
                         key={schedule.id}
                         onClick={() => handleScheduleToggle(schedule.id)}
-                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                             currentSchedule === schedule.id
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-2'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-sm'
                         }`}
                     >
                         {schedule.name} ({schedule.frequency}d)
                     </button>
                 ))}
-                <button
-                    onClick={addSchedule}
-                    className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 whitespace-nowrap"
-                >
-                    + New
-                </button>
             </div>
             
             {/* Active Schedule Options */}
             {activeSchedule && (
-                <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md">
+                <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
                     <input
                         type="text"
                         value={activeSchedule.name}
@@ -152,7 +135,7 @@ export default function ScheduleLocationsTab({
                             const index = schedules.findIndex(s => s.id === currentSchedule);
                             updateSchedule(index, 'name', e.target.value);
                         }}
-                        className="flex-1 border p-1 rounded text-xs"
+                        className="flex-1 border border-gray-200 p-1.5 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                         placeholder="Schedule Name"
                     />
                     <select
@@ -161,7 +144,7 @@ export default function ScheduleLocationsTab({
                             const index = schedules.findIndex(s => s.id === currentSchedule);
                             updateSchedule(index, 'frequency', parseInt(e.target.value));
                         }}
-                        className="border p-1 rounded text-xs bg-white"
+                        className="border border-gray-200 p-1.5 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                     >
                         {FREQUENCY_PRESETS.filter(p => p.value > 0).map(preset => (
                             <option key={preset.value} value={preset.value}>
@@ -175,18 +158,20 @@ export default function ScheduleLocationsTab({
                                 const index = schedules.findIndex(s => s.id === currentSchedule);
                                 removeSchedule(index);
                             }}
-                            className="bg-red-100 text-red-700 rounded p-1 text-xs hover:bg-red-200"
+                            className="p-1.5 rounded-lg transition-colors hover:bg-red-50 text-red-500 hover:text-red-600"
                         >
-                            ×
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     )}
                 </div>
             )}
 
             {/* CSV Upload */}
-            <div className="bg-gray-50 p-2 rounded text-xs">
-                <label className="block font-medium text-gray-700 mb-1">
-                    Bulk Import Locations (CSV)
+            <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Import Locations (CSV)
                 </label>
                 <input
                     type="file"
@@ -194,13 +179,17 @@ export default function ScheduleLocationsTab({
                     multiple
                     onChange={handleCsvUpload}
                     className="w-full text-xs text-gray-500
-                        file:mr-2 file:py-1 file:px-2
-                        file:rounded file:border-0
+                        file:mr-2 file:py-1.5 file:px-3
+                        file:rounded-lg file:border-0
                         file:text-xs file:font-medium
-                        file:bg-blue-50 file:text-blue-700"
+                        file:bg-blue-50 file:text-blue-600
+                        hover:file:bg-blue-100
+                        file:transition-colors"
                 />
                 {uploadError && (
-                    <p className="text-red-500 text-xs mt-1">{uploadError}</p>
+                    <div className="mt-1.5 text-xs p-2 bg-red-50 rounded-lg border border-red-100 text-red-500">
+                        {uploadError}
+                    </div>
                 )}
             </div>
 
@@ -211,37 +200,48 @@ export default function ScheduleLocationsTab({
             />
 
             {/* Locations List */}
-            {scheduleLocations.length > 0 ? (
-                <div>
-                    <div className="flex justify-between text-xs text-gray-500 font-medium mb-1">
-                        <span>Locations ({scheduleLocations.length})</span>
-                        <span>Actions</span>
-                    </div>
-                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+                    <span className="text-xs font-medium text-gray-900">Locations</span>
+                    <span className="text-xs text-gray-500">{scheduleLocations.length} total</span>
+                </div>
+                {scheduleLocations.length > 0 ? (
+                    <div className="divide-y divide-gray-50 max-h-[calc(100vh-24rem)] overflow-y-auto">
                         {scheduleLocations.map((loc) => (
-                            <div key={loc.id_num} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-xs">
-                                <div>
-                                    <div className="font-medium">{loc.name}</div>
-                                    <div className="text-gray-500">
-                                        {loc.coordinates[0].toFixed(4)}, {loc.coordinates[1].toFixed(4)} | {loc.wco_amount}L
+                            <div key={loc.id_num} 
+                                 className="flex items-start justify-between p-2.5 hover:bg-gray-50/50 transition-colors">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-medium border border-blue-100">
+                                            {loc.id_num + 1}
+                                        </div>
+                                        <div className="truncate">
+                                            <div className="font-medium text-gray-900 text-xs truncate">
+                                                {loc.name}
+                                            </div>
+                                            <div className="text-[10px] text-gray-500">
+                                                {loc.coordinates[0].toFixed(4)}, {loc.coordinates[1].toFixed(4)} • {loc.wco_amount}L
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => onRemoveLocation(loc.id)}
-                                    className="text-red-500 hover:text-red-700 ml-2"
-                                    title="Remove location"
+                                    className="ml-2 p-1 rounded-lg transition-colors hover:bg-red-50 text-red-400 hover:text-red-500"
                                 >
-                                    ×
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
                             </div>
                         ))}
                     </div>
-                </div>
-            ) : (
-                <div className="text-center p-3 text-gray-500 text-sm bg-gray-50 rounded">
-                    No locations in this schedule
-                </div>
-            )}
+                ) : (
+                    <div className="text-center p-4 text-gray-500 text-sm bg-gray-50">
+                        No locations in this schedule
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
