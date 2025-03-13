@@ -21,6 +21,7 @@ class CollectionScheduler:
         self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
         self.SPEED_KPH = AVERAGE_SPEED_KPH
         self.MINUTES_PER_10KM = MINUTES_PER_10KM
+        self.MAX_TRAVEL_TIME = 240  # 4 hours max travel time
         
         # Calculate max simulation days needed based on schedules
         max_freq = max(self.frequency_map.values())
@@ -209,6 +210,9 @@ class CollectionScheduler:
                         total_time > self.MAX_COLLECTION_TIME):
                         continue
                         
+                    if travel_time > self.MAX_TRAVEL_TIME:
+                        continue
+                    
                     # Calculate assignment score considering traffic
                     capacity_ratio = location.wco_amount / remaining_capacity
                     time_ratio = total_time / self.MAX_COLLECTION_TIME
@@ -216,10 +220,10 @@ class CollectionScheduler:
 
                     # Combined score (higher is better)
                     score = (
-                        capacity_ratio * 0.3 +      # Prefer fuller vehicles
+                        capacity_ratio * 0.4 +      # Prefer fuller vehicles
                         (1 - time_ratio) * 0.3 +    # Prefer less time impact
                         distance_factor * 0.2 +      # Prefer closer locations
-                        traffic_factor * 0.2         # Prefer shorter travel times
+                        traffic_factor * 0.1         # Prefer shorter travel times
                     )
                     
                     if score > best_score:

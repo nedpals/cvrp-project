@@ -7,7 +7,14 @@ export function useOptimizeRoutes() {
   const { data: routes, isLoading, mutate } = useSWR<RouteResponse[]>('/optimize', null);
 
   const generateRoutes = async (config: ConfigRequest, locations: Location[], scheduleId: string) => {
-    const cacheKey = getOptimizeRoutesKey(config, scheduleId);
+    const finalConfig = {
+      ...config,
+      vehicles: config.vehicles.map(vehicle => ({
+        ...vehicle,
+        depot_location: config.depot_location
+      })),
+    }
+    const cacheKey = getOptimizeRoutesKey(finalConfig, scheduleId);
     
     // Check if we have this result cached
     if (routesCache.has(cacheKey)) {
@@ -17,7 +24,7 @@ export function useOptimizeRoutes() {
     }
 
     try {
-      const result = await optimizeRoutes(config, locations);
+      const result = await optimizeRoutes(finalConfig, locations);
       routesCache.set(cacheKey, result);
       await mutate(result);
       return result;

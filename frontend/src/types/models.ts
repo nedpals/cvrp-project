@@ -47,9 +47,11 @@ export interface StopInfo {
     trip_number: number;
     cumulative_load: number;
     remaining_capacity: number;
-    sequence_number: number;
     distance_from_depot: number;
+    distance_from_prev: number;
     vehicle_capacity: number;
+    sequence_number: number;
+    collection_day: number;
 }
 
 export interface RoadPath {
@@ -65,6 +67,7 @@ export interface RoutePathInfo {
     to_coords: [number, number];
     path: [number, number][];
     trip_number: number;
+    travel_time_minutes: number;
 }
 
 export interface VehicleRouteInfo {
@@ -75,6 +78,7 @@ export interface VehicleRouteInfo {
     total_distance: number;
     total_collected: number;
     efficiency: number;
+    collection_day: number;
     stops: StopInfo[];
     road_paths: RoadPath[];
     combined_path: RoutePathInfo[];
@@ -91,6 +95,7 @@ export interface RouteResponse {
     total_vehicles: number;
     total_distance: number;
     total_collected: number;
+    collection_day: number;
     vehicle_routes: VehicleRouteInfo[];
 }
 
@@ -114,3 +119,8 @@ export const FREQUENCY_PRESETS: FrequencyPreset[] = [
     { value: 30, label: 'Monthly (30 days)' },
     { value: -1, label: 'Custom...' }
 ];
+
+export const TRAFFIC_CONSTANTS = {
+    AVERAGE_SPEED_KPH: 18.2,
+    MINUTES_PER_10KM: 32.983
+} as const;
