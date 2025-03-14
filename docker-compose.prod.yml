@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   caddy:
+    container_name: cvrp_caddy
     image: caddy:2-alpine
     ports:
       - "80:80"
@@ -16,6 +15,7 @@ services:
       - web
 
   backend:
+    container_name: cvrp_backend
     build:
       context: .
       dockerfile: Dockerfile
@@ -30,9 +30,18 @@ services:
       - ors_network
 
   ors-app:
-    extends:
-      file: ./ors/docker-compose.yml
-      service: ors-app
+    container_name: cvrp_ors
+    image: openrouteservice/openrouteservice:v8.0.0
+    volumes:
+      - ./ors/ors-docker:/home/ors
+    environment:
+      REBUILD_GRAPHS: False
+      CONTAINER_LOG_LEVEL: INFO
+      XMS: 1g
+      XMX: 2g
+      ADDITIONAL_JAVA_OPTS: ""
+      ors.engine.source_file: /home/ors/files/philippines-latest.osm.pbf
+      ors.engine.profiles.hgv.enabled: true
     networks:
       - ors_network
     expose:

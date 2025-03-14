@@ -24,7 +24,7 @@ from pathlib import Path
 from models.location import Location, Vehicle, RouteConstraints
 from solvers.or_tools_solver import ORToolsSolver
 from visualization.route_visualizer import RouteVisualizer
-from typing import List, Tuple
+from typing import List
 import json
 from solvers.greedy_solver import GreedySolver
 from solvers.nearest_neighbor_solver import NearestNeighborSolver
@@ -61,7 +61,6 @@ class CvrpSystem:
     }
 
     def __init__(self):
-        self.config = self.load_config()
         self.api_key = os.getenv('ORS_API_KEY')
         self.data_path = Path(__file__).parent.parent / 'data'
         self.output_path = self.create_output_directory()
@@ -135,7 +134,7 @@ class CvrpSystem:
         
         return registry
 
-    def save_analysis_results(self, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
+    def save_analysis_results(self, config: ScheduleConfig, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
         """Save analysis results to files, organizing by schedule and day."""
         # Group results by base schedule
         schedule_groups: dict[str, list[RouteAnalysisResult]] = {}
@@ -160,7 +159,7 @@ class CvrpSystem:
                 
                 # Create visualization
                 visualizer = RouteVisualizer(
-                    center_coordinates=self.config.depot_location,
+                    center_coordinates=config.depot_location,
                     api_key=self.api_key
                 )
                 visualizer.add_routes(analysis)
@@ -208,6 +207,7 @@ class CvrpSystem:
             print("Warning: ORS_API_KEY environment variable not set")
             return
 
+        config = self.load_config()
         solver_class = self.AVAILABLE_SOLVERS[args.solver]
         print(f"Using {args.solver} solver")
 
@@ -216,21 +216,21 @@ class CvrpSystem:
             Vehicle(
                 id=vehicle_config.id,
                 capacity=vehicle_config.capacity,
-                depot_location=self.config.depot_location
+                depot_location=config.depot_location
             )
-            for vehicle_config in self.config.vehicles
+            for vehicle_config in config.vehicles
         ]
 
         # Load all schedule data
         locations = ScheduleLoader.load_all_schedules(
-            self.config.schedules,
+            config.schedules,
             self.data_path
         )
 
         # Create route constraints from config
         constraints = RouteConstraints(
             one_way_roads=[(tuple(road[0]), tuple(road[1])) 
-                          for road in self.config.one_way_roads]
+                          for road in config.one_way_roads]
         )
 
         # Initialize CVRP solver
@@ -244,13 +244,13 @@ class CvrpSystem:
         try:
             # Process schedules independently
             results, collection_tracker = cvrp.process(
-                schedule_entries=self.config.schedules,
+                schedule_entries=config.schedules,
                 locations=locations,
                 with_scheduling=not args.disable_scheduling
             )
             
             # Save results
-            self.save_analysis_results(cvrp, results, collection_tracker)
+            self.save_analysis_results(config, cvrp, results, collection_tracker)
 
         except Exception as e:
             print(f"Error processing schedules: {e}")
