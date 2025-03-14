@@ -58,7 +58,7 @@ export default function ConfigForm({
     const getCurrentConfig = (): ConfigRequest => {
         return {
             depot_location: [parseFloat(depotLat), parseFloat(depotLng)],
-            vehicles,
+            vehicles: vehicles.map(v => ({ ...v, depot_location: [parseFloat(depotLat), parseFloat(depotLng)] })),
             schedules,
             one_way_roads: oneWayRoads,
             solver,

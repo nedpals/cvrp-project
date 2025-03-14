@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import json
 from pathlib import Path
 from typing import List
@@ -30,6 +32,10 @@ app = FastAPI(
     description="API for Waste Cooking Oil Collection Route Optimization",
     version="1.0.0"
 )
+
+# Serve frontend static files
+frontend_path = Path(__file__).parent.parent.parent / 'frontend' / 'dist'
+app.mount("/assets", StaticFiles(directory=str(frontend_path / "assets")), name="assets")
 
 # Enable CORS
 app.add_middleware(
@@ -94,7 +100,7 @@ async def optimize_routes(
             vehicles=vehicles,
             solver_class=solver_class,
             constraints=constraints,
-            allow_multiple_trips=config.allow_multiple_trips
+            allow_multiple_trips=True
         )
 
         # Convert schedule entries
@@ -191,6 +197,16 @@ async def get_visualization_config():
             status_code=500,
             detail=f"Failed to load visualization config: {str(e)}"
         )
+
+# Catch-all route for SPA client-side routing
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str, request: Request):
+    # If path starts with /api, let it fall through to API routes
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API route not found")
+        
+    # Otherwise serve the frontend index.html
+    return FileResponse(str(frontend_path / "index.html"))
 
 def start_api_server(host="0.0.0.0", port=8000):
     """Start the FastAPI server with the given host and port"""

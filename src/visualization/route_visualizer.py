@@ -24,7 +24,7 @@ class RouteVisualizer:
         '#17becf',  # cyan
     ]
 
-    def __init__(self, center_coordinates: Tuple[float, float], api_key: str = None):
+    def __init__(self, center_coordinates: Tuple[float, float], api_key: str = None, ors_base_url: str = None):
         """
         Initialize the visualizer.
         
@@ -32,10 +32,16 @@ class RouteVisualizer:
             center_coordinates: (latitude, longitude) of the map center
             api_key: OpenRouteService API key, defaults to env variable ORS_API_KEY
         """
+        if api_key is None:
+            api_key = os.environ.get('ORS_API_KEY', None)
+
+        if ors_base_url is None:
+            ors_base_url = os.environ.get('ORS_BASE_URL', 'http://localhost:8080/ors')
+
         self.center = center_coordinates
         self.map = folium.Map(location=center_coordinates, zoom_start=13)
         self.colors = ['red', 'blue', 'green', 'purple', 'orange', 'darkred']
-        self.client = ors.Client(key=api_key or os.getenv('ORS_API_KEY'), base_url='http://localhost:8080/ors')
+        self.client = ors.Client(key=api_key, base_url=ors_base_url)
         # Store the computed road paths
         self.computed_paths = {}
 

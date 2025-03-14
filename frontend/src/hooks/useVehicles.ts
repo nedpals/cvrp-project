@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Vehicle } from '../types/models';
 
+type VehicleWithoutDepot = Omit<Vehicle, 'depot_location'>;
+
 export function useVehicles() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([
+  const [vehicles, setVehicles] = useState<VehicleWithoutDepot[]>([
     { id: 'v1', capacity: 1000 }
   ]);
   

@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    networks:
+      - web
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8000
+      - ORS_BASE_URL=http://ors-app:8082/ors
+      - ORS_API_KEY=${ORS_API_KEY:-}
+    depends_on:
+      - ors-app
+    networks:
+      - web
+      - ors_network
+
+  ors-app:
+    extends:
+      file: ./ors/docker-compose.yml
+      service: ors-app
+    networks:
+      - ors_network
+    expose:
+      - 8082
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8082/ors/v2/health || exit 1
+      start_period: 1m
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      disable: false
+
+networks:
+  web:
+    driver: bridge
+  ors_network:
+    driver: bridge
+    internal: true
+  internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:

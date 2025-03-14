@@ -1,7 +1,9 @@
 import { ConfigRequest, Location, RouteResponse, SolverInfo } from '../types/models';
 import { VisualizationConfig } from '../types/config';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:8000/api'
+  : '/api';
 
 // Fetch functions
 export async function fetcher<T>(url: string): Promise<T> {
