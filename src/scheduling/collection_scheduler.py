@@ -158,13 +158,13 @@ class CollectionScheduler:
         
         # Process each cluster
         for cluster in clusters:
-            # Sort locations by WCO amount and time constraints within the geographic cluster
+            # Sort locations prioritizing geographic proximity over WCO amount
             sorted_locations = sorted(
                 cluster.locations, 
                 key=lambda x: (
-                    -x.wco_amount,  # Prioritize larger collections
-                    self.clusterer.estimate_collection_time(x),  # Then by collection time
-                    calculate_distance(x.coordinates, vehicles[0].depot_location)  # Then by distance from depot
+                    calculate_distance(x.coordinates, vehicles[0].depot_location),  # Primary sort by distance from depot
+                    -x.wco_amount,  # Secondary sort by WCO amount
+                    self.clusterer.estimate_collection_time(x)  # Finally by collection time
                 )
             )
             
@@ -182,9 +182,9 @@ class CollectionScheduler:
                     if location.wco_amount > remaining_capacity:
                         continue
                         
-                    # Calculate time and load scores with both time constraints
+                    # Calculate time and load scores
                     collection_time = min(
-                        self.MAX_STOP_TIME,  # Cap per-establishment time
+                        self.MAX_STOP_TIME,
                         self.clusterer.estimate_collection_time(location)
                     )
                     current_time = vehicle_times[v_idx]
@@ -194,14 +194,12 @@ class CollectionScheduler:
                         last_loc = assignments[v_idx][-1]
                         distance_km = calculate_distance(last_loc.coordinates, location.coordinates)
                     else:
-                        # If first location in route, calculate distance from depot
                         distance_km = calculate_distance(vehicle.depot_location, location.coordinates)
 
                     distance_factor = 1.0 / (1 + distance_km)
                     travel_time = self._estimate_travel_time(distance_km)
                     total_time = current_time + collection_time + travel_time
                     
-                    # Check both time constraints with travel time included
                     if (collection_time > self.MAX_STOP_TIME or 
                         total_time > self.MAX_DAILY_TIME):
                         continue
@@ -209,17 +207,17 @@ class CollectionScheduler:
                     if travel_time > self.MAX_TRAVEL_TIME:
                         continue
                     
-                    # Calculate assignment score considering traffic
+                    # Calculate assignment score with higher weight on distance
                     capacity_ratio = location.wco_amount / remaining_capacity
                     time_ratio = total_time / self.MAX_DAILY_TIME
-                    traffic_factor = 1.0 / (1 + (travel_time / 60))  # Convert to hours
+                    traffic_factor = 1.0 / (1 + (travel_time / 60))
 
-                    # Combined score (higher is better)
+                    # Adjusted weights to prioritize distance
                     score = (
-                        capacity_ratio * 0.4 +      # Prefer fuller vehicles
-                        (1 - time_ratio) * 0.3 +    # Prefer less time impact
-                        distance_factor * 0.2 +      # Prefer closer locations
-                        traffic_factor * 0.1         # Prefer shorter travel times
+                        distance_factor * 0.5 +      # Increased weight for distance
+                        capacity_ratio * 0.2 +       # Reduced weight for capacity
+                        (1 - time_ratio) * 0.2 +     # Reduced weight for time
+                        traffic_factor * 0.1         # Keep traffic weight same
                     )
                     
                     if score > best_score:
