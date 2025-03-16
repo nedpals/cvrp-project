@@ -71,7 +71,7 @@ export default function ResultsCard({
     setActiveTrip,
   } = useFilterStore();
   const { depotLat, depotLng } = useConfigStore();
-  const currentRoute = useMemo(() => routes.length > 1 ? routes[0] : null, [routes]);
+  const currentRoute = useMemo(() => routes.length !== 0 ? routes[0] : null, [routes]);
 
   const toggleVehicle = (vehicleId: string) => {
     const newVehicles = new Set(activeVehicles);
@@ -93,7 +93,15 @@ export default function ResultsCard({
     return Array.from(trips).sort((a, b) => a - b);
   };
   
+  const totalWco = useMemo(() => {
+    if (!currentRoute) return 0;
+    return currentRoute.vehicle_routes.reduce((total, vr) => {
+      return total + vr.stops.reduce((stopTotal, stop) => stopTotal + stop.wco_amount, 0);
+    }, 0);
+  }, [currentRoute]);
+
   useEffect(() => {
+    console.log(currentRoute);
     if (activeTrip && currentRoute) {
       const tripStops = currentRoute.vehicle_routes
         .flatMap(vr => vr.stops)
@@ -130,7 +138,7 @@ export default function ResultsCard({
     );
   }
 
-  if (!currentRoute || !routes || routes.length === 0) return null;
+  if (!currentRoute) return null;
 
   return (
     <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
@@ -172,20 +180,26 @@ export default function ResultsCard({
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-sm font-medium text-gray-900">Route Summary</h2>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <div className="relative bg-gradient-to-b from-green-50 to-white p-2.5 rounded-lg shadow-sm border border-green-100 w-full">
+            <div className="flex flex-col relative z-10">
+              <span className="text-gray-500 mb-0.5">WCO Collected</span>
+              <span className="font-semibold text-gray-900 text-sm">{totalWco.toFixed(1)}L</span>
+            </div>
+          </div>
+          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex-1 min-w-[120px]">
             <div className="flex flex-col">
               <span className="text-gray-500 mb-0.5">Total Stops</span>
               <span className="font-semibold text-gray-900">{currentRoute.total_stops}</span>
             </div>
           </div>
-          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100">
+          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex-1 min-w-[120px]">
             <div className="flex flex-col">
               <span className="text-gray-500 mb-0.5">Distance</span>
               <span className="font-semibold text-gray-900">{currentRoute.total_distance.toFixed(1)}km</span>
             </div>
           </div>
-          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100">
+          <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100 flex-1 min-w-[120px]">
             <div className="flex flex-col">
               <span className="text-gray-500 mb-0.5">Duration</span>
               <span className="font-semibold text-gray-900">{formatDuration(currentRoute.total_travel_time)}</span>
