@@ -246,26 +246,30 @@ class CVRP:
                 vehicle_collection_time = 0
                 vehicle_travel_time = 0
 
-                # Add depot start stop
-                depot_start = StopInfo(
-                    name="Depot",  # Changed name
-                    location_id=f"depot_start_{vehicle.id}",  # Changed ID format
-                    coordinates=vehicle.depot_location,
-                    wco_amount=0,
-                    trip_number=1,
-                    cumulative_load=0,
-                    remaining_capacity=vehicle.capacity,
-                    distance_from_depot=0,
-                    distance_from_prev=0,
-                    vehicle_capacity=vehicle.capacity,
-                    sequence_number=-1,
-                    collection_day=day
-                )
-                stops_data.append(depot_start)
+                should_add_depot_start = True
 
                 # Process regular stops
                 total_locations += len(route.stops)
                 for i, stop in enumerate(route.stops):
+                    if should_add_depot_start:
+                        # Add depot start stop for each trip
+                        depot_start = StopInfo(
+                            name="Depot",
+                            location_id=f"depot_start_{vehicle.id}_trip_{stop.trip_number}",
+                            coordinates=vehicle.depot_location,
+                            wco_amount=0,
+                            trip_number=stop.trip_number,
+                            cumulative_load=0,
+                            remaining_capacity=vehicle.capacity,
+                            distance_from_depot=0,
+                            distance_from_prev=0,
+                            vehicle_capacity=vehicle.capacity,
+                            sequence_number=i-1,
+                            collection_day=day
+                        )
+                        stops_data.append(depot_start)
+                        should_add_depot_start = False
+
                     location_data = locations.get_by_id(stop.location_id)
                     remaining_capacity = vehicle.capacity - stop.cumulative_load
                     
@@ -288,22 +292,24 @@ class CVRP:
                     vehicle_collection_time += stop.collection_time
                     vehicle_travel_time += stop.travel_time
 
-                # Add depot end stop
-                depot_end = StopInfo(
-                    name="Depot",  # Changed name
-                    location_id=f"depot_end_{vehicle.id}",  # Changed ID format
-                    coordinates=vehicle.depot_location,
-                    wco_amount=0,
-                    trip_number=max(stop.trip_number for stop in route.stops) if route.stops else 1,
-                    cumulative_load=vehicle_collected,
-                    remaining_capacity=0,
-                    distance_from_depot=0,
-                    distance_from_prev=stops_data[-1].distance_from_depot if stops_data else 0,
-                    vehicle_capacity=vehicle.capacity,
-                    sequence_number=len(route.stops),
-                    collection_day=day
-                )
-                stops_data.append(depot_end)
+                    if (i + 1 < len(route.stops) and stop.trip_number != route.stops[i + 1].trip_number) or i == len(route.stops) - 1:
+                        # Add depot end stop between trips
+                        depot_end = StopInfo(
+                            name="Depot",
+                            location_id=f"depot_end_{vehicle.id}_trip_{stop.trip_number}",
+                            coordinates=vehicle.depot_location,
+                            wco_amount=0,
+                            trip_number=stop.trip_number,
+                            cumulative_load=stop.cumulative_load,
+                            remaining_capacity=remaining_capacity,
+                            distance_from_depot=0,
+                            distance_from_prev=calculate_distance(stop.coordinates, vehicle.depot_location),
+                            vehicle_capacity=vehicle.capacity,
+                            sequence_number=i,
+                            collection_day=day
+                        )
+                        stops_data.append(depot_end)
+                        should_add_depot_start = True
 
                 vehicle_route = VehicleRouteInfo(
                     vehicle_id=vehicle.id,

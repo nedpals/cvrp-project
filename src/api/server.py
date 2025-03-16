@@ -114,7 +114,7 @@ async def optimize_routes(
         ]
 
         # Process routes
-        results, collection_tracker = cvrp.process(
+        results, _ = cvrp.process(
             schedule_entries=schedule_entries,
             locations=location_registry
         )
