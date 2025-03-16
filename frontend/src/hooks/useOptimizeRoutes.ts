@@ -10,7 +10,11 @@ export function useOptimizeRoutes() {
     locations: Location[];
   } | null>(null);
 
-  const { data: routes, isLoading, mutate } = useSWR<RouteResponse[]>('/optimize', null);
+  const { data: routes, isLoading, mutate } = useSWR<RouteResponse[]>('/optimize', null, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 0
+  });
 
   const generateRoutes = async (config: ConfigRequest, locations: Location[]) => {
     setError(null);
