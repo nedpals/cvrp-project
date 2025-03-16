@@ -1,5 +1,10 @@
 export type Coordinates = [number, number];
 
+export interface VehicleConfig {
+    id: string;
+    capacity: number;
+}
+
 export interface RawLocation {
     id: string;
     name: string;
@@ -46,13 +51,27 @@ export const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
     { name: 'Monthly Collection', frequency: 30 },
 ];
 
-export interface ConfigRequest {
-    depot_location: [number, number];
-    vehicles: Vehicle[];
-    schedules: ScheduleEntry[];  // Changed from schedules array to single schedule
+export interface MapConfig {
+  center?: [number, number];
+  zoom_level: number;
+  path_weight: number;
+  path_opacity: number;
+}
+
+export interface SolveConfig {
+  solver: string;
+  vehicles: VehicleConfig[];
+  depot_location: [number, number];
+  constraints: {
     one_way_roads: [number, number][][];
-    solver: string;
-    allow_multiple_trips: boolean;
+  };
+}
+
+export interface ConfigRequest {
+  map: MapConfig;
+  settings: SolveConfig;
+  schedules: ScheduleEntry[];
+  locations: Location[];
 }
 
 export interface StopInfo {

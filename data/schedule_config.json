@@ -1,4 +1,9 @@
 {
+    "map": {
+        "zoom_level": 13,
+        "path_weight": 2,
+        "path_opacity": 0.8
+    },
     "schedules": [
         {
             "id": "4_days",
@@ -25,19 +30,18 @@
             "frequency": 14
         }
     ],
-    "vehicles": [
-        {
-            "id": "vehicle_1",
-            "capacity": 2000
+    "settings": {
+        "vehicles": [
+            {
+                "id": "vehicle_1",
+                "capacity": 2000
+            }
+        ],
+        "depot_location": [7.099907716684531, 125.58941003079195],
+        "constraints": {
+            "one_way_roads": [
+                [[7.0698796, 125.6069442], [7.0700608, 125.6062942]]
+            ]
         }
-    ],
-    "depot_location": [7.099907716684531, 125.58941003079195],
-    "one_way_roads": [
-        [[7.0698796, 125.6069442], [7.0700608, 125.6062942]]
-    ],
-    "visualization": {
-        "zoom_level": 13,
-        "path_weight": 2,
-        "path_opacity": 0.8
     }
 }

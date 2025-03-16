@@ -1,34 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { ConfigRequest, SolverInfo, Location } from '../types/models';
+import { ConfigRequest, Location } from '../types/models';
 import ScheduleLocationsTab from './ScheduleLocationsTab';
-import { useSchedules } from '../hooks/useSchedules';
-import { useVehicles } from '../hooks/useVehicles';
 import { downloadConfigAsJson } from '../services/api';
 import { useConfigStore } from '../stores/configStore';
 import LocationEditorModal from './LocationEditorModal';
 import BulkImportWrapper from './BulkImportWrapper';
+import { useSolversList } from '../hooks/useSolvers';
 
 interface ConfigFormProps {
     onSubmit: (config: ConfigRequest) => void;
-    solvers: SolverInfo[];
     defaultSolver?: string;
-    locations: Location[];
-    onAddLocation: (location: Location) => void;
-    onRemoveLocation: (id: string) => void;
     isLoading?: boolean;
 }
 
 export default function ConfigForm({ 
     onSubmit, 
-    solvers, 
     defaultSolver,
-    locations,
-    onAddLocation,
-    onRemoveLocation,
     isLoading = false
 }: ConfigFormProps) {
-    const { vehicles, addVehicle, removeVehicle, updateVehicle, setVehicles } = useVehicles();
-    const { schedules, setSchedules } = useSchedules();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [configError, setConfigError] = useState<string | null>(null);
     const [openSections, setOpenSections] = useState<Set<string>>(new Set([]));
@@ -37,18 +26,39 @@ export default function ConfigForm({
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
+    const { solvers, isLoading: isSolversLoading, error: solverListErr } = useSolversList();
+
     const {
-        depotLat,
-        depotLng,
-        solver,
-        oneWayRoads,
-        setDepotLat,
-        setDepotLng,
+        config,
         setSolver,
+        setDepotLocation,
+        addVehicle,
+        removeVehicle,
+        updateVehicle,
         addOneWayRoad,
         updateOneWayRoad,
         removeOneWayRoad,
+        importConfig,
+        loadDefaultConfig,
+        setSchedules,
+        addLocation,
+        removeLocation,
     } = useConfigStore();
+
+    const { 
+        locations, 
+        schedules, 
+        settings: { 
+            solver,
+            vehicles,
+            depot_location,
+            constraints: { one_way_roads }
+        }
+    } = config;
+
+    useEffect(() => {
+        loadDefaultConfig();
+    }, []);
 
     useEffect(() => {
         if (defaultSolver && !solver) {
@@ -66,12 +76,8 @@ export default function ConfigForm({
         const selectedSchedules = currentScheduleEntry ? [currentScheduleEntry] : [];
 
         return {
-            depot_location: [parseFloat(depotLat), parseFloat(depotLng)],
-            vehicles: vehicles.map(v => ({ ...v, depot_location: [parseFloat(depotLat), parseFloat(depotLng)] })),
+            ...config,
             schedules: selectedSchedules,
-            one_way_roads: oneWayRoads,
-            solver,
-            allow_multiple_trips: true
         };
     };
 
@@ -84,28 +90,7 @@ export default function ConfigForm({
         reader.onload = (event) => {
             try {
                 const config = JSON.parse(event.target?.result as string);
-                
-                // Update depot location
-                if (config.depot_location && Array.isArray(config.depot_location) && config.depot_location.length === 2) {
-                    setDepotLat(config.depot_location[0].toString());
-                    setDepotLng(config.depot_location[1].toString());
-                }
-                
-                // Update vehicles
-                if (config.vehicles && Array.isArray(config.vehicles)) {
-                    setVehicles(config.vehicles);
-                }
-                
-                // Update schedules and set current schedule
-                if (config.schedules && Array.isArray(config.schedules)) {
-                    setSchedules(config.schedules);
-                    setCurrentSchedule(config.schedules[0]?.id || null);
-                }
-                
-                // Update solver if it exists in our available solvers
-                if (config.solver && solvers.some(s => s.id === config.solver)) {
-                    setSolver(config.solver);
-                }
+                importConfig(config);
                 
                 // Reset file input
                 if (fileInputRef.current) {
@@ -121,7 +106,7 @@ export default function ConfigForm({
     };
 
     const handleExportConfig = () => {
-        downloadConfigAsJson(getCurrentConfig());
+        downloadConfigAsJson(config);
     };
 
     const handleAddOneWayRoad = () => {
@@ -149,9 +134,9 @@ export default function ConfigForm({
     const handleLocationSave = (location: Location) => {
         if (editingLocation) {
             // If editing, remove old location and add updated one
-            onRemoveLocation(editingLocation.id);
+            removeLocation(editingLocation.id);
         }
-        onAddLocation(location);
+        addLocation(location);
         setEditingLocation(undefined);
     };
 
@@ -200,7 +185,7 @@ export default function ConfigForm({
                     <div className="p-3 space-y-3">
                         {configError && (
                             <div className="text-red-500 text-xs p-2 bg-red-50 rounded-lg border border-red-100">
-                                {configError}
+                                Failed to load default config: {configError}
                             </div>
                         )}
                         
@@ -210,8 +195,8 @@ export default function ConfigForm({
                                 <input
                                     type="number"
                                     step="any"
-                                    value={depotLat}
-                                    onChange={(e) => setDepotLat(e.target.value)}
+                                    value={depot_location[0]}
+                                    onChange={(e) => setDepotLocation(e.target.valueAsNumber, depot_location[1])}
                                     className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                                 />
                             </div>
@@ -220,8 +205,8 @@ export default function ConfigForm({
                                 <input
                                     type="number"
                                     step="any"
-                                    value={depotLng}
-                                    onChange={(e) => setDepotLng(e.target.value)}
+                                    value={depot_location[1]}
+                                    onChange={(e) => setDepotLocation(depot_location[0], e.target.valueAsNumber)}
                                     className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                                 />
                             </div>
@@ -234,7 +219,11 @@ export default function ConfigForm({
                                 onChange={(e) => setSolver(e.target.value)}
                                 className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow disabled:bg-gray-100 disabled:text-gray-500"
                             >
-                                {solvers.map(solver => (
+                                {isSolversLoading ? (
+                                    <option value="" disabled>Loading...</option>
+                                ) : solverListErr ? (
+                                    <option value="" disabled>Error loading solvers</option>
+                                ) : solvers.map(solver => (
                                     <option key={solver.id} value={solver.id} title={solver.description}>
                                         {solver.name}
                                     </option>
@@ -283,14 +272,14 @@ export default function ConfigForm({
                                         <input
                                             type="text"
                                             value={vehicle.id}
-                                            onChange={(e) => updateVehicle(index, 'id', e.target.value)}
+                                            onChange={(e) => updateVehicle({ ...vehicle, id: e.target.value })}
                                             placeholder="ID"
                                             className="border border-gray-200 p-1.5 rounded-lg bg-white flex-1 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                                         />
                                         <input
                                             type="number"
                                             value={vehicle.capacity}
-                                            onChange={(e) => updateVehicle(index, 'capacity', parseInt(e.target.value))}
+                                            onChange={(e) => updateVehicle({ ...vehicle, capacity: parseInt(e.target.value) })}
                                             placeholder="Capacity"
                                             className="border border-gray-200 p-1.5 rounded-lg bg-white w-24 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
                                         />
@@ -335,7 +324,7 @@ export default function ConfigForm({
                         </button>
                         {openSections.has('oneWayRoads') && (
                             <div className="p-3 space-y-2 bg-gray-50/50">
-                                {oneWayRoads.map((road, roadIndex) => (
+                                {one_way_roads.map((road, roadIndex) => (
                                     <div key={roadIndex} className="p-2 rounded-lg bg-gray-50/80 border border-gray-100 space-y-2">
                                         <div className="flex gap-2 items-center">
                                             <span className="text-xs font-medium text-gray-600 w-10">From</span>
@@ -413,8 +402,8 @@ export default function ConfigForm({
                         schedules={schedules}
                         locations={locations}
                         onUpdateSchedules={setSchedules}
-                        onAddLocation={onAddLocation}
-                        onRemoveLocation={onRemoveLocation}
+                        onAddLocation={addLocation}
+                        onRemoveLocation={removeLocation}
                         onEditLocation={(location) => {
                             setEditingLocation(location);
                             setIsLocationModalOpen(true);
@@ -439,7 +428,7 @@ export default function ConfigForm({
             <BulkImportWrapper
                 isOpen={isBulkImportOpen}
                 onClose={() => setIsBulkImportOpen(false)}
-                onAddLocation={onAddLocation}
+                onAddLocation={addLocation}
                 schedules={schedules}
                 onAddSchedules={handleAutoCreateSchedules}
             />

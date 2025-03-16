@@ -1,10 +1,13 @@
-from pydantic import BaseModel
-from typing import List, Tuple
+from pydantic import BaseModel, Field
+from typing import List, Tuple, Optional
 from models.shared_models import (
+    Location,
+    RouteConstraints,
     ScheduleEntry as SharedScheduleEntry
 )
 
-class VisualizationConfig(BaseModel):
+class MapConfig(BaseModel):
+    center: Optional[Tuple[float, float]]
     zoom_level: int
     path_weight: int
     path_opacity: float
@@ -13,23 +16,15 @@ class VehicleConfig(BaseModel):
     id: str
     capacity: float
 
-class ScheduleConfig(BaseModel):
-    schedules: List[SharedScheduleEntry]
-    vehicles: List[VehicleConfig]
+class SolveConfig(BaseModel):
+    solver: Optional[str] = 'schedule'
+    vehicles: List['VehicleConfig']
     depot_location: Tuple[float, float]
-    one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]]
-    visualization: VisualizationConfig
+    constraints: 'RouteConstraints'
 
-    @classmethod
-    def from_dict(cls, data: dict) -> 'ScheduleConfig':
-        schedules = [SharedScheduleEntry(**s) for s in data['schedules']]
-        vehicles = [VehicleConfig(**v) for v in data['vehicles']]
-        visualization = VisualizationConfig(**data['visualization'])
-        
-        return cls(
-            schedules=schedules,
-            vehicles=vehicles,
-            depot_location=tuple(data['depot_location']),
-            one_way_roads=[tuple(map(tuple, road)) for road in data['one_way_roads']],
-            visualization=visualization
-        )
+class Config(BaseModel):
+    map: MapConfig
+    schedules: List[SharedScheduleEntry] = Field(default_factory=list)
+    locations: List[Location]
+    settings: SolveConfig
+

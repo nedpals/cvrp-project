@@ -22,11 +22,11 @@ export default function LocationEditorModal({
     schedules,
     fixedSchedule
 }: LocationEditorModalProps) {
-    const { depotLat, depotLng } = useConfigStore();
+    const { config: { settings: { depot_location } } } = useConfigStore();
     const [formData, setFormData] = useState<Partial<Location>>(
         location || {
             name: '',
-            coordinates: [parseFloat(depotLat), parseFloat(depotLng)],
+            coordinates: depot_location,
             wco_amount: 0,
             disposal_schedule: fixedSchedule?.frequency ?? 7
         }
@@ -77,7 +77,7 @@ export default function LocationEditorModal({
                     <div className="w-[600px] rounded-lg overflow-hidden border border-gray-200">
                         <Map
                             ref={mapRef}
-                            center={formData.coordinates || [parseFloat(depotLat), parseFloat(depotLng)]}
+                            center={formData.coordinates || depot_location}
                             config={{
                                 zoom_level: 12,
                                 path_weight: 3,

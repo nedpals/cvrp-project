@@ -29,7 +29,7 @@ import json
 from solvers.greedy_solver import GreedySolver
 from solvers.nearest_neighbor_solver import NearestNeighborSolver
 import argparse
-from models.config import ScheduleConfig
+from models.config import Config
 from models.shared_models import ScheduleEntry
 from solvers.schedule_aware_solver import ScheduleAwareSolver
 from datetime import datetime
@@ -103,18 +103,13 @@ class CvrpSystem:
             action='store_true',
             help='Disable schedule-based optimization (not recommended)'
         )
-        parser.add_argument(
-            '--allow-multiple-trips',
-            action='store_true',
-            help='Allow vehicles to make multiple trips when needed'
-        )
         return parser.parse_args()
 
-    def load_config(self) -> ScheduleConfig:
+    def load_config(self) -> Config:
         config_path = Path(__file__).parent.parent / 'data' / 'schedule_config.json'
         with open(config_path) as f:
             config_dict = json.load(f)
-        return ScheduleConfig.from_dict(config_dict)
+        return Config(**config_dict)
     
     def load_schedule_data(self, schedule_entry: ScheduleEntry) -> LocationRegistry:
         """Load location data from schedule-specific CSV file."""
@@ -134,7 +129,7 @@ class CvrpSystem:
         
         return registry
 
-    def save_analysis_results(self, config: ScheduleConfig, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
+    def save_analysis_results(self, config: Config, cvrp: CVRP, results: List[RouteAnalysisResult], collection_tracker: TripCollection):
         """Save analysis results to files, organizing by schedule and day."""
         # Group results by base schedule
         schedule_groups: dict[str, list[RouteAnalysisResult]] = {}
@@ -159,7 +154,7 @@ class CvrpSystem:
                 
                 # Create visualization
                 visualizer = RouteVisualizer(
-                    center_coordinates=config.depot_location,
+                    center_coordinates=config.map.center,
                     api_key=self.api_key
                 )
                 visualizer.add_routes(analysis)
@@ -209,9 +204,9 @@ class CvrpSystem:
             Vehicle(
                 id=vehicle_config.id,
                 capacity=vehicle_config.capacity,
-                depot_location=config.depot_location
+                depot_location=config.settings.depot_location
             )
-            for vehicle_config in config.vehicles
+            for vehicle_config in config.settings.vehicles
         ]
 
         # Load all schedule data
@@ -220,18 +215,11 @@ class CvrpSystem:
             self.data_path
         )
 
-        # Create route constraints from config
-        constraints = RouteConstraints(
-            one_way_roads=[(tuple(road[0]), tuple(road[1])) 
-                          for road in config.one_way_roads]
-        )
-
         # Initialize CVRP solver
         cvrp = CVRP(
             vehicles=vehicles,
             solver_class=solver_class,
-            constraints=constraints,
-            allow_multiple_trips=args.allow_multiple_trips
+            constraints=config.settings.constraints
         )
 
         try:

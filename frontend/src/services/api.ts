@@ -1,5 +1,4 @@
 import { ConfigRequest, Location, RouteResponse, SolverInfo } from '../types/models';
-import { VisualizationConfig } from '../types/config';
 
 const API_BASE_URL = import.meta.env.DEV 
   ? 'http://localhost:8000/api'
@@ -14,13 +13,13 @@ export async function fetcher<T>(url: string): Promise<T> {
   return response.json();
 }
 
-// Visualization config
-export const getVisualizationConfig = () => 
-  fetcher<VisualizationConfig>('/config/visualization');
-
 // Solvers
 export const getSolvers = () => 
   fetcher<{ solvers: SolverInfo[] }>('/solvers');
+
+// Default config
+export const getDefaultConfig = () =>
+  fetcher<ConfigRequest>('/config');
 
 // Download configuration as JSON file
 export const downloadConfigAsJson = (config: ConfigRequest) => {

@@ -22,12 +22,15 @@ export function useOptimizeRoutes() {
 
     const finalConfig = {
       ...config,
-      vehicles: config.vehicles.map(vehicle => ({
-        ...vehicle,
-        depot_location: config.depot_location
-      })),
+      settings: {
+        ...config.settings,
+        vehicles: config.settings.vehicles.map(vehicle => ({
+          ...vehicle,
+          depot_location: config.settings.depot_location
+        }))
+      },
       schedules: [config.schedules[0]] // Only use the first schedule
-    }
+    };
 
     try {
       const result = await optimizeRoutes(finalConfig, locations);

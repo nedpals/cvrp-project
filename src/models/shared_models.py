@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 # Traffic Constants
 AVERAGE_SPEED_KPH = 30  # Average speed in Davao City
 
-# Add RouteConstraints class
 class RouteConstraints(BaseModel):
     one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
 

@@ -1,7 +1,5 @@
 import ConfigForm from './components/ConfigForm';
 import Map from './components/Map';
-import { useConfig } from './hooks/useConfig';
-import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
 import { ConfigRequest, StopInfo } from './types/models';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,9 +10,13 @@ import { MapData, MapPath, MapRef } from './types/map';
 import { findStopAndVehicleInfo, getVehicleColor, createLocationPopup, createDepotPopup } from './utils/mapHelpers';
 
 function App() {
-  const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
-  const { depotLat, depotLng } = useConfigStore();
-  const { locations, addLocation, removeLocation } = useLocations();
+  const { 
+    config: { 
+      map: mapConfig, 
+      settings: { depot_location, solver },
+      locations 
+    }
+  } = useConfigStore();
   const { routes, isLoading: isOptimizing, generateRoutes, error, retry } = useOptimizeRoutes();
   const mapRef = useRef<MapRef>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -62,11 +64,7 @@ function App() {
     }
 
     try {
-      const configWithDepot = {
-        ...config,
-        depot_location: [parseFloat(depotLat), parseFloat(depotLng)] as [number, number]
-      };
-      await generateRoutes(configWithDepot, locations);
+      await generateRoutes(config, locations);
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to generate routes');
@@ -155,7 +153,7 @@ function App() {
     // Add depot marker always
     markers.unshift({
       id: 'depot',
-      position: [parseFloat(depotLat), parseFloat(depotLng)],
+      position: depot_location,
       color: 'blue',
       onClick: () => setSelectedLocationId(null),
       popup: routes ? createDepotPopup(routes) : <></>
@@ -194,17 +192,17 @@ function App() {
     ) || [];
 
     return { markers, paths };
-  }, [activeLocations, activeTrip, routes, depotLat, depotLng, selectedLocationId]);
+  }, [activeLocations, activeTrip, routes, depot_location, selectedLocationId]);
 
   return (
     <div className="h-screen w-screen relative overflow-hidden pointer-events-none">
       {/* Full-screen map */}
       <div className="absolute inset-0 z-0 pointer-events-auto">
-        {visualConfig ? (
+        {mapConfig ? (
           <Map
             ref={mapRef}
-            center={mapCenter}
-            config={visualConfig.map}
+            center={mapConfig.center || depot_location}
+            config={mapConfig}
             data={mapData}
           />
         ) : (
@@ -234,11 +232,7 @@ function App() {
         <div className="w-80 h-full pointer-events-auto flex flex-col">
           <ConfigForm
             onSubmit={handleConfigSubmit}
-            solvers={solvers}
-            defaultSolver={defaultSolver}
-            locations={locations}
-            onAddLocation={addLocation}
-            onRemoveLocation={removeLocation}
+            defaultSolver={solver}
             isLoading={isOptimizing}
           />
         </div>

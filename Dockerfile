@@ -33,7 +33,6 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy backend code
-COPY data/visualization_config.json ./data/visualization_config.json
 COPY src/ ./src
 
 # Copy built frontend from frontend-builder stage

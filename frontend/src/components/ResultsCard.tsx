@@ -27,7 +27,7 @@ const formatDuration = (seconds: number) => {
 
 const exportToExcel = (route: RouteResponse) => {
   const workbook = XLSX.utils.book_new();
-  const { depotLat, depotLng } = useConfigStore.getState();
+  const { config: { settings: { depot_location: [depotLat, depotLng] } } } = useConfigStore.getState();
   
   // Enhanced summary sheet with WCO total
   const totalWco = route.vehicle_routes.reduce((total, vr) => 
@@ -62,8 +62,8 @@ const exportToExcel = (route: RouteResponse) => {
         'Depot (Start)', 
         '0', 
         tripNumber.toString(),
-        depotLat,
-        depotLng
+        JSON.stringify(depotLat),
+        JSON.stringify(depotLng)
       ]);
       
       // Add stops for this trip
@@ -88,8 +88,8 @@ const exportToExcel = (route: RouteResponse) => {
         'Depot (End)', 
         JSON.stringify(vr.stops.reduce((total, stop) => total + stop.wco_amount, 0)),
         tripNumber.toString(),
-        depotLat,
-        depotLng
+        JSON.stringify(depotLat),
+        JSON.stringify(depotLng)
       ]);
     });
 

@@ -16,7 +16,7 @@ from models.shared_models import (
     RouteAnalysisResult as RouteResponse,
     ScheduleEntry
 )
-from .models import ConfigRequest
+from models.config import Config, MapConfig, SolveConfig
 from models.location_registry import LocationRegistry
 from cvrp import CVRP
 from solvers.or_tools_solver import ORToolsSolver
@@ -62,7 +62,7 @@ class DateTimeEncoder(json.JSONEncoder):
 
 @app.post("/api/optimize", response_model=List[RouteResponse])
 async def optimize_routes(
-    config: ConfigRequest,
+    config: Config,
     locations: List[Location]
 ) -> List[RouteResponse]:
     try:
@@ -99,8 +99,7 @@ async def optimize_routes(
         cvrp = CVRP(
             vehicles=vehicles,
             solver_class=solver_class,
-            constraints=constraints,
-            allow_multiple_trips=True
+            constraints=constraints
         )
 
         # Convert schedule entries
@@ -177,17 +176,46 @@ async def get_solvers():
         ]
     }
 
-@app.get("/api/config/visualization")
-async def get_visualization_config():
-    """Get visualization configuration"""
+@app.get("/api/config")
+async def get_default_config():
+    """Get default application configuration"""
     try:
-        config_path = Path(__file__).parent.parent.parent / 'data' / 'visualization_config.json'
-        with open(config_path) as f:
-            return json.load(f)
+        config_path = Path(__file__).parent.parent.parent / 'default_config.json'
+        if config_path.exists():
+            with open(config_path) as f:
+                config_data = json.load(f)
+                return Config(**config_data)
+        
+        # Fallback config if file doesn't exist
+        return Config(
+            map=MapConfig(
+                center=(7.0707, 125.6087),  # Davao City center
+                zoom_level=13,
+                path_weight=5,
+                path_opacity=0.6
+            ),
+            schedules=[
+                ScheduleEntry(
+                    id="default",
+                    name="Default Schedule",
+                    frequency=7,
+                    file="default_schedule.csv",
+                    color="#FF0000",
+                    icon="fas fa-trash"
+                )
+            ],
+            locations=[],
+            settings=SolveConfig(
+                solver='schedule',
+                vehicles=[],
+                depot_location=(7.099907716684531, 125.58941003079195),
+                constraints=RouteConstraints(one_way_roads=[])
+            )
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to load visualization config: {str(e)}"
+            detail=f"Failed to load default config: {str(e)}"
         )
 
 # Catch-all route for SPA client-side routing
