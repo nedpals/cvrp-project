@@ -7,9 +7,11 @@
         "@fortawesome/fontawesome-free": "^6.7.2",
         "@headlessui/react": "^2.2.0",
         "@tailwindcss/vite": "^4.0.12",
+        "@types/leaflet-polylinedecorator": "^1.6.4",
         "clsx": "^2.1.1",
         "immer": "^10.1.1",
         "leaflet": "^1.9.4",
+        "leaflet-polylinedecorator": "^1.6.0",
         "leaflet.awesome-markers": "^2.0.5",
         "papaparse": "^5.5.2",
         "react": "^19.0.0",
@@ -289,6 +291,8 @@
 
     "@types/leaflet": ["@types/leaflet@1.9.16", "", { "dependencies": { "@types/geojson": "*" } }, "sha512-wzZoyySUxkgMZ0ihJ7IaUIblG8Rdc8AbbZKLneyn+QjYsj5q1QU7TEKYqwTr10BGSzY5LI7tJk9Ifo+mEjdFRw=="],
 
+    "@types/leaflet-polylinedecorator": ["@types/leaflet-polylinedecorator@1.6.4", "", { "dependencies": { "@types/leaflet": "*" } }, "sha512-meH/jC58Drt/9aqLhuzMCUQjHgMTud+UuQBK5gT6E8M6OfM/rftz/VgvdxOCCAQC9isrp4pqahDgEswesb5X3A=="],
+
     "@types/leaflet.awesome-markers": ["@types/leaflet.awesome-markers@2.0.28", "", { "dependencies": { "@types/leaflet": "*" } }, "sha512-weYTpd102+C2elY2LgNYc9PLLKbvqo9762LTeYc9VRCZqcQLabFdWzgozlQp1u71sMoHP13r7gbvIZbPMzhv/Q=="],
 
     "@types/node": ["@types/node@22.13.10", "", { "dependencies": { "undici-types": "~6.20.0" } }, "sha512-I6LPUvlRH+O6VRUqYOcMudhaIdUVWfsjnZavnsraHvpBwaEyMN29ry+0UVJhImYL16xsscu0aske3yA+uPOWfw=="],
@@ -476,6 +480,10 @@
     "keyv": ["keyv@4.5.4", "", { "dependencies": { "json-buffer": "3.0.1" } }, "sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw=="],
 
     "leaflet": ["leaflet@1.9.4", "", {}, "sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA=="],
+
+    "leaflet-polylinedecorator": ["leaflet-polylinedecorator@1.6.0", "", { "dependencies": { "leaflet-rotatedmarker": "^0.2.0" } }, "sha512-kn3krmZRetgvN0wjhgYL8kvyLS0tUogAl0vtHuXQnwlYNjbl7aLQpkoFUo8UB8gVZoB0dhI4Tb55VdTJAcYzzQ=="],
+
+    "leaflet-rotatedmarker": ["leaflet-rotatedmarker@0.2.0", "", {}, "sha512-yc97gxLXwbZa+Gk9VCcqI0CkvIBC9oNTTjFsHqq4EQvANrvaboib4UdeQLyTnEqDpaXHCqzwwVIDHtvz2mUiDg=="],
 
     "leaflet.awesome-markers": ["leaflet.awesome-markers@2.0.5", "", {}, "sha512-Ne/xDjkGyaujwNVVkv2tyXQUV0ZW7gZ0Mo0FuQY4jp2qWrvXi0hwDBvmZyF/8YOvybyMabTMM/mFWCTd1jZIQA=="],
 

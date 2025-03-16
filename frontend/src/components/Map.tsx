@@ -1,9 +1,10 @@
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useEffect } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents, Polyline } from 'react-leaflet';
 import { MapRef, MapData } from '../types/map';
 import { Coordinates } from '../types/models';
 import { createCustomMarker, createDepotMarker } from '../utils/mapIcons';
-import L from 'leaflet';
+import L, { LatLngExpression } from 'leaflet';
+import 'leaflet-polylinedecorator';
 
 import 'leaflet.awesome-markers/dist/leaflet.awesome-markers.css';
 import 'leaflet/dist/leaflet.css';
@@ -67,6 +68,39 @@ const MapController = forwardRef<MapRef, unknown>((_, ref) => {
     return null;
 });
 
+const PathDecorator = ({ points, color, opacity }: { 
+    points: LatLngExpression[],
+    color: string,
+    opacity: number 
+}) => {
+    const map = useMap();
+
+    useEffect(() => {
+        const decorator = L.polylineDecorator(L.polyline(points), {
+            patterns: [
+                {
+                    offset: '25%',
+                    repeat: 50,
+                    symbol: L.Symbol.arrowHead({
+                        pixelSize: 15,
+                        pathOptions: {
+                            color: color,
+                            fillOpacity: opacity,
+                            weight: 0
+                        }
+                    })
+                }
+            ]
+        }).addTo(map);
+
+        return () => {
+            decorator.remove();
+        };
+    }, [map, points, color, opacity]);
+
+    return null;
+};
+
 const Map = forwardRef<MapRef, MapProps>(({ 
     center, 
     config,
@@ -102,15 +136,21 @@ const Map = forwardRef<MapRef, MapProps>(({
 
             {/* Paths */}
             {data?.paths?.map((path) => (
-                <Polyline
-                    key={path.id}
-                    positions={path.points}
-                    pathOptions={{
-                        color: path.color || '#3388ff',
-                        weight: path.weight || config.path_weight,
-                        opacity: path.opacity || config.path_opacity
-                    }}
-                />
+                <div key={path.id}>
+                    <Polyline
+                        positions={path.points}
+                        pathOptions={{
+                            color: path.color || '#3388ff',
+                            weight: path.weight || config.path_weight,
+                            opacity: path.opacity || config.path_opacity
+                        }}
+                    />
+                    <PathDecorator 
+                        points={path.points}
+                        color={path.color || '#3388ff'}
+                        opacity={path.opacity || config.path_opacity}
+                    />
+                </div>
             ))}
         </MapContainer>
     );
