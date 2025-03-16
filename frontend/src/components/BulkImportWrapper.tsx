@@ -108,11 +108,8 @@ export default function BulkImportWrapper({
         setShowScheduleModal(false);
     };
 
-    const handleManualCreateSchedules = () => {
-        // Just close everything - user will need to create schedules first
-        setPendingLocations([]);
-        setShowScheduleModal(false);
-        onClose();
+    const handleAddSchedule = (schedule: ScheduleEntry) => {
+        onAddSchedules?.([schedule.frequency]);
     };
 
     return (
@@ -128,7 +125,7 @@ export default function BulkImportWrapper({
                 onClose={() => setShowScheduleModal(false)}
                 missingSchedules={missingSchedules}
                 onAutoCreate={handleAutoCreateSchedules}
-                onManualCreate={handleManualCreateSchedules}
+                onAddSchedule={handleAddSchedule}
             />
         </>
     );

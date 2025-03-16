@@ -1,19 +1,21 @@
 import { Dialog } from '@headlessui/react';
 import { ScheduleEntry, SCHEDULE_TEMPLATES } from '../types/models';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ScheduleEditorModalProps {
     isOpen: boolean;
     onClose: () => void;
     schedule?: ScheduleEntry;
     onSave: (schedule: ScheduleEntry) => void;
+    defaultFrequency?: number | null;
 }
 
 export default function ScheduleEditorModal({
     isOpen,
     onClose,
     schedule,
-    onSave
+    onSave,
+    defaultFrequency
 }: ScheduleEditorModalProps) {
     const [formData, setFormData] = useState<Partial<ScheduleEntry>>(
         schedule || {
@@ -36,6 +38,12 @@ export default function ScheduleEditorModal({
         onSave(newSchedule);
         onClose();
     };
+
+    useEffect(() => {
+        if (!schedule && defaultFrequency) {
+            setFormData({ ...formData, frequency: defaultFrequency });
+        }
+    }, [schedule, defaultFrequency]);
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-[100]">
