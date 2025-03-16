@@ -76,45 +76,29 @@ async def optimize_routes(
             Vehicle(
                 id=v.id,
                 capacity=v.capacity,
-                depot_location=config.depot_location
-            ) for v in config.vehicles
+                depot_location=config.settings.depot_location
+            ) for v in config.settings.vehicles
         ]
 
-        # Create route constraints
-        constraints = RouteConstraints(
-            one_way_roads=[(tuple(road[0]), tuple(road[1])) 
-                          for road in config.one_way_roads]
-        )
-
         # Validate solver
-        if config.solver not in SOLVERS:
+        if config.settings.solver not in SOLVERS:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid solver. Choose from: {', '.join(SOLVERS.keys())}"
             )
         
-        solver_class = SOLVERS[config.solver]
+        solver_class = SOLVERS[config.settings.solver]
 
         # Create CVRP instance
         cvrp = CVRP(
             vehicles=vehicles,
             solver_class=solver_class,
-            constraints=constraints
+            constraints=config.settings.constraints
         )
-
-        # Convert schedule entries
-        schedule_entries = [
-            ScheduleEntry(
-                id=s.id,
-                name=s.name,
-                frequency=s.frequency,
-                file=s.file
-            ) for s in config.schedules
-        ]
 
         # Process routes
         results, _ = cvrp.process(
-            schedule_entries=schedule_entries,
+            schedule_entries=config.schedules,
             locations=location_registry
         )
         
@@ -136,7 +120,7 @@ async def optimize_routes(
                 # Process each day
                 for day_result in sorted_days:
                     visualizer = RouteVisualizer(
-                        center_coordinates=config.depot_location,
+                        center_coordinates=config.settings.depot_location,
                         api_key=os.getenv('ORS_API_KEY')
                     )
 
