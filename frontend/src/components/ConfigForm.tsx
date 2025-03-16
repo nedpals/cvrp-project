@@ -62,10 +62,13 @@ export default function ConfigForm({
     };
 
     const getCurrentConfig = (): ConfigRequest => {
+        const currentScheduleEntry = schedules.find(s => s.id === currentSchedule);
+        const selectedSchedules = currentScheduleEntry ? [currentScheduleEntry] : [];
+
         return {
             depot_location: [parseFloat(depotLat), parseFloat(depotLng)],
             vehicles: vehicles.map(v => ({ ...v, depot_location: [parseFloat(depotLat), parseFloat(depotLng)] })),
-            schedules,
+            schedules: selectedSchedules,
             one_way_roads: oneWayRoads,
             solver,
             allow_multiple_trips: true
