@@ -33,6 +33,19 @@ export interface ScheduleEntry {
     color?: string;
 }
 
+export interface ScheduleTemplate {
+    name: string;
+    frequency: number;
+}
+
+export const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
+    { name: 'Daily Collection', frequency: 1 },
+    { name: 'Bi-daily Collection', frequency: 2 },
+    { name: 'Weekly Collection', frequency: 7 },
+    { name: 'Bi-weekly Collection', frequency: 14 },
+    { name: 'Monthly Collection', frequency: 30 },
+];
+
 export interface ConfigRequest {
     depot_location: [number, number];
     vehicles: Vehicle[];

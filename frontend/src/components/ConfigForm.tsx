@@ -382,33 +382,8 @@ export default function ConfigForm({
 
             {/* Locations/Schedules Card */}
             <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden flex-1">
-                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex justify-between items-center">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm">
                     <h2 className="text-sm font-medium text-gray-900">Locations & Schedules</h2>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => {
-                                setEditingLocation(undefined);
-                                setIsLocationModalOpen(true);
-                            }}
-                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
-                        >
-                            Add Location
-                        </button>
-                        <button
-                            onClick={() => {
-                                const newSchedule = {
-                                    id: `s${schedules.length + 1}`,
-                                    name: `Schedule ${schedules.length + 1}`,
-                                    frequency: 7,
-                                    file: 'schedule.json'
-                                };
-                                setSchedules([...schedules, newSchedule]);
-                            }}
-                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
-                        >
-                            New Schedule
-                        </button>
-                    </div>
                 </div>
                 <div className="p-3">
                     <ScheduleLocationsTab

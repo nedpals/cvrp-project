@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ScheduleEntry, Location, FREQUENCY_PRESETS } from '../types/models';
+import { ScheduleEntry, Location } from '../types/models';
 import Papa from 'papaparse';
+import ScheduleEditorModal from './ScheduleEditorModal';
 
 interface ScheduleLocationsTabProps {
     schedules: ScheduleEntry[];
@@ -8,7 +9,7 @@ interface ScheduleLocationsTabProps {
     onUpdateSchedules: (schedules: ScheduleEntry[]) => void;
     onAddLocation: (location: Location) => void;
     onRemoveLocation: (locationId: string) => void;
-    onEditLocation?: (location: Location) => void;
+    onEditLocation?: (location?: Location) => void;
 }
 
 interface RawLocation {
@@ -28,29 +29,14 @@ export default function ScheduleLocationsTab({
     onEditLocation
 }: ScheduleLocationsTabProps) {
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(schedules[0]?.id || null);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [scheduleToEdit, setScheduleToEdit] = useState<ScheduleEntry | undefined>();
 
     const handleScheduleToggle = (scheduleId: string) => {
         setCurrentSchedule(scheduleId);
     };
 
     const [uploadError, setUploadError] = useState<string>();
-
-    const updateSchedule = (index: number, field: keyof ScheduleEntry, value: unknown) => {
-        const updatedSchedules = [...schedules];
-        updatedSchedules[index] = { ...updatedSchedules[index], [field]: value };
-        onUpdateSchedules(updatedSchedules);
-    };
-
-    const removeSchedule = (index: number) => {
-        const schedule = schedules[index];
-        const remainingSchedules = schedules.filter((_, i) => i !== index);
-        onUpdateSchedules(remainingSchedules);
-        
-        // If current schedule was removed, select the first available schedule
-        if (schedule.id === currentSchedule && remainingSchedules.length > 0) {
-            setCurrentSchedule(remainingSchedules[0].id);
-        }
-    };
 
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
@@ -88,76 +74,74 @@ export default function ScheduleLocationsTab({
         event.target.value = '';
     };
 
+    const handleSaveSchedule = (schedule: ScheduleEntry) => {
+        if (scheduleToEdit) {
+            const index = schedules.findIndex(s => s.id === scheduleToEdit.id);
+            const updatedSchedules = [...schedules];
+            updatedSchedules[index] = schedule;
+            onUpdateSchedules(updatedSchedules);
+        } else {
+            onUpdateSchedules([...schedules, schedule]);
+        }
+    };
+
     // Filter locations for the current schedule
     const scheduleLocations = locations.filter(loc => {
         const schedule = schedules.find(s => s.id === currentSchedule);
         return schedule && loc.disposal_schedule === schedule.frequency;
     });
 
-    // Get current schedule details
-    const activeSchedule = schedules.find(s => s.id === currentSchedule);
-
     return (
         <div className="space-y-3">
-            {/* Schedule Selection - remove the "+ New" button */}
-            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                {schedules.map((schedule) => (
-                    <button
-                        key={schedule.id}
-                        onClick={() => handleScheduleToggle(schedule.id)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                            currentSchedule === schedule.id
-                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-2'
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-sm'
-                        }`}
-                    >
-                        {schedule.name} ({schedule.frequency}d)
-                    </button>
-                ))}
+            {/* Schedule Selection */}
+            <div className="flex items-center gap-2">
+                <select
+                    value={currentSchedule || ''}
+                    onChange={(e) => handleScheduleToggle(e.target.value)}
+                    className="flex-1 border border-gray-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                    <option value="">Select Schedule</option>
+                    {schedules.map((schedule) => (
+                        <option key={schedule.id} value={schedule.id}>
+                            {schedule.name} ({schedule.frequency}d)
+                        </option>
+                    ))}
+                </select>
+                <button
+                    onClick={() => {
+                        const schedule = schedules.find(s => s.id === currentSchedule);
+                        setScheduleToEdit(schedule);
+                        setIsScheduleModalOpen(true);
+                    }}
+                    className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+                    disabled={!currentSchedule}
+                >
+                    <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                </button>
+                <button
+                    onClick={() => {
+                        setScheduleToEdit(undefined);
+                        setIsScheduleModalOpen(true);
+                    }}
+                    className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+                >
+                    <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                </button>
             </div>
-            
-            {/* Active Schedule Options */}
-            {activeSchedule && (
-                <div className="flex items-center gap-2 p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <input
-                        type="text"
-                        value={activeSchedule.name}
-                        onChange={(e) => {
-                            const index = schedules.findIndex(s => s.id === currentSchedule);
-                            updateSchedule(index, 'name', e.target.value);
-                        }}
-                        className="flex-1 border border-gray-200 p-1.5 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
-                        placeholder="Schedule Name"
-                    />
-                    <select
-                        value={activeSchedule.frequency}
-                        onChange={(e) => {
-                            const index = schedules.findIndex(s => s.id === currentSchedule);
-                            updateSchedule(index, 'frequency', parseInt(e.target.value));
-                        }}
-                        className="border border-gray-200 p-1.5 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
-                    >
-                        {FREQUENCY_PRESETS.filter(p => p.value > 0).map(preset => (
-                            <option key={preset.value} value={preset.value}>
-                                {preset.label}
-                            </option>
-                        ))}
-                    </select>
-                    {schedules.length > 1 && (
-                        <button
-                            onClick={() => {
-                                const index = schedules.findIndex(s => s.id === currentSchedule);
-                                removeSchedule(index);
-                            }}
-                            className="p-1.5 rounded-lg transition-colors hover:bg-red-50 text-red-500 hover:text-red-600"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    )}
-                </div>
-            )}
+
+            <ScheduleEditorModal
+                isOpen={isScheduleModalOpen}
+                onClose={() => {
+                    setIsScheduleModalOpen(false);
+                    setScheduleToEdit(undefined);
+                }}
+                schedule={scheduleToEdit}
+                onSave={handleSaveSchedule}
+            />
 
             {/* CSV Upload */}
             <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm">
@@ -187,8 +171,18 @@ export default function ScheduleLocationsTab({
             {/* Locations List */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
-                    <span className="text-xs font-medium text-gray-900">Locations</span>
-                    <span className="text-xs text-gray-500">{scheduleLocations.length} total</span>
+                    <div className="flex justify-between items-center w-full">
+                        <span className="text-xs font-medium text-gray-900">Locations</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">{scheduleLocations.length} total</span>
+                            <button
+                                onClick={() => onEditLocation?.(undefined)}
+                                className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                            >
+                                Add Location
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 {scheduleLocations.length > 0 ? (
                     <div className="divide-y divide-gray-50 max-h-[calc(100vh-24rem)] overflow-y-auto">
