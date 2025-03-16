@@ -149,9 +149,9 @@ export default function ConfigForm({
     };
 
     return (
-        <div className="space-y-2 h-full flex flex-col">
+        <div className="h-full flex flex-col">
             {/* Route Configuration Card */}
-            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden">
+            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden flex-shrink-0">
                 <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white sticky top-0 z-0 shadow-sm flex justify-between items-center">
                     <h2 className="text-sm font-medium text-gray-900">Route Configuration</h2>
                     <div className="flex gap-1.5">
@@ -381,11 +381,11 @@ export default function ConfigForm({
             </form>
 
             {/* Locations/Schedules Card */}
-            <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden flex-1">
-                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm">
-                    <h2 className="text-sm font-medium text-gray-900">Locations & Schedules</h2>
+            <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden mt-3 flex flex-col flex-1 min-h-0">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex-shrink-0">
+                    <h2 className="text-sm font-medium text-gray-900">Schedules</h2>
                 </div>
-                <div className="p-3">
+                <div className="flex-1 overflow-auto">
                     <ScheduleLocationsTab
                         schedules={schedules}
                         locations={locations}

@@ -49,7 +49,7 @@ export default function ScheduleLocationsTab({
     return (
         <div className="space-y-3">
             {/* Schedule Selection */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 pt-3">
                 <select
                     value={currentSchedule || ''}
                     onChange={(e) => handleScheduleToggle(e.target.value)}
@@ -99,36 +99,38 @@ export default function ScheduleLocationsTab({
             />
 
             {/* Locations List */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+            <div className="bg-white rounded-lg overflow-hidden flex flex-col h-[400px]">
+                <div className="px-3 py-2 border-y border-gray-100 flex justify-between items-center">
                     <div className="flex justify-between items-center w-full">
-                        <span className="text-xs font-medium text-gray-900">Locations</span>
+                        <p className="text-xs font-medium text-gray-900">
+                            Locations
+                            <span className="text-xs text-gray-500 ml-2">{scheduleLocations.length} total</span>
+                        </p>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">{scheduleLocations.length} total</span>
                             <button
                                 onClick={() => setIsAddLocationModalOpen(true)}
                                 className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
                             >
-                                Add Location
+                                Add
                             </button>
                         </div>
                     </div>
                 </div>
                 {scheduleLocations.length > 0 ? (
-                    <div className="divide-y divide-gray-50 max-h-[calc(100vh-24rem)] overflow-y-auto">
+                    <div className="divide-y divide-gray-50 overflow-y-auto flex-1">
                         {scheduleLocations.map((loc) => (
                             <div key={loc.id_num} 
                                  className="flex items-start justify-between p-2.5 hover:bg-gray-50/50 transition-colors">
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-medium border border-blue-100">
+                                        <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-medium border border-blue-100 flex-shrink-0">
                                             {loc.id_num + 1}
                                         </div>
-                                        <div className="space-y-1">
-                                            <div className="font-medium text-gray-900 text-xs truncate">
+                                        <div className="space-y-1 min-w-0">
+                                            <div className="font-medium text-gray-900 text-xs truncate max-w-full">
                                                 {loc.name}
                                             </div>
-                                            <div className="text-[10px] text-gray-500">
+                                            <div className="text-[10px] text-gray-500 truncate">
                                                 {loc.coordinates[0].toFixed(4)}, {loc.coordinates[1].toFixed(4)} • {loc.wco_amount}L
                                             </div>
                                         </div>

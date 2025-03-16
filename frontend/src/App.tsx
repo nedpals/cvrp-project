@@ -107,9 +107,9 @@ function App() {
   }, [activeDay, routes]);
 
   return (
-    <div className="h-screen w-screen relative">
+    <div className="h-screen w-screen relative overflow-hidden pointer-events-none">
       {/* Full-screen map */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 pointer-events-auto">
         {visualConfig ? (
           <Map
             ref={mapRef}
@@ -127,9 +127,9 @@ function App() {
       </div>
 
       {/* Right Side - Configuration and Results */}
-      <div className="absolute top-4 right-0 pr-4 pb-4 h-full z-50 flex gap-3">
+      <div className="absolute top-4 right-0 pr-4 bottom-4 z-50 flex gap-3 overflow-hidden pointer-events-auto">
         {/* Results Card */}
-        <div className="w-80 pointer-events-auto">
+        <div className="w-80 h-full pointer-events-auto flex flex-col">
           <ResultsCard 
             routes={routes ?? []} 
             onZoomToLocation={handleZoomToCoordinates}
@@ -138,7 +138,7 @@ function App() {
         </div>
 
         {/* Config Cards */}
-        <div className="w-80 space-y-3 pointer-events-auto">
+        <div className="w-80 h-full pointer-events-auto flex flex-col">
           <ConfigForm 
             onSubmit={handleConfigSubmit} 
             solvers={solvers}
