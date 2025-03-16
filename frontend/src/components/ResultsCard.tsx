@@ -25,32 +25,75 @@ const formatDuration = (seconds: number) => {
 
 const exportToExcel = (route: RouteResponse) => {
   const workbook = XLSX.utils.book_new();
+  const { depotLat, depotLng } = useConfigStore.getState();
   
-  // Summary sheet
+  // Enhanced summary sheet with WCO total
+  const totalWco = route.vehicle_routes.reduce((total, vr) => 
+    total + vr.stops.reduce((stopTotal, stop) => stopTotal + stop.wco_amount, 0), 0
+  );
+  
   const summaryData = [
     ['Total Stops', route.total_stops],
     ['Total Distance (km)', route.total_distance],
     ['Total Travel Time', formatDuration(route.total_travel_time)],
     ['Total Vehicles', route.total_vehicles],
+    ['Total WCO Collected (L)', totalWco.toFixed(1)],
   ];
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-  // Vehicle routes sheet
-  const routesData = [['Vehicle ID', 'Stop Number', 'Location Name', 'Collection Amount (L)', 'Trip Number']];
+  // Get all unique trips
+  const trips = new Set<number>();
   route.vehicle_routes.forEach(vr => {
-    vr.stops.forEach(stop => {
-      routesData.push([
-        vr.vehicle_id,
-        JSON.stringify(stop.sequence_number + 1),
-        stop.name,
-        JSON.stringify(stop.wco_amount),
-        JSON.stringify(stop.trip_number)
+    vr.stops.forEach(stop => trips.add(stop.trip_number));
+  });
+
+  // Create a sheet for each trip
+  Array.from(trips).sort((a, b) => a - b).forEach(tripNumber => {
+    const tripData = [['Vehicle ID', 'Stop Number', 'Location Name', 'Collection Amount (L)', 'Trip Number', 'Latitude', 'Longitude']];
+    
+    route.vehicle_routes.forEach(vr => {
+      // Add depot start for each vehicle
+      tripData.push([
+        vr.vehicle_id, 
+        '0', 
+        'Depot (Start)', 
+        '0', 
+        tripNumber.toString(),
+        depotLat,
+        depotLng
+      ]);
+      
+      // Add stops for this trip
+      vr.stops
+        .filter(stop => stop.trip_number === tripNumber)
+        .forEach(stop => {
+          tripData.push([
+            vr.vehicle_id,
+            (stop.sequence_number + 1).toString(),
+            stop.name,
+            stop.wco_amount.toString(),
+            stop.trip_number.toString(),
+            stop.coordinates[0].toString(),
+            stop.coordinates[1].toString(),
+          ]);
+        });
+      
+      // Add depot end for each vehicle
+      tripData.push([
+        vr.vehicle_id, 
+        '-', 
+        'Depot (End)', 
+        JSON.stringify(vr.stops.reduce((total, stop) => total + stop.wco_amount, 0)),
+        tripNumber.toString(),
+        depotLat,
+        depotLng
       ]);
     });
+
+    const tripSheet = XLSX.utils.aoa_to_sheet(tripData);
+    XLSX.utils.book_append_sheet(workbook, tripSheet, `Trip ${tripNumber}`);
   });
-  const routesSheet = XLSX.utils.aoa_to_sheet(routesData);
-  XLSX.utils.book_append_sheet(workbook, routesSheet, 'Routes');
 
   // Save the file
   XLSX.writeFile(workbook, `route_export_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -150,7 +193,7 @@ export default function ResultsCard({
             onClick={() => currentRoute && exportToExcel(currentRoute)}
             className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
-            Export Route
+            Export
           </button>
         </div>
       </div>
