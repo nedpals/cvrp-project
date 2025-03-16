@@ -21,7 +21,7 @@ function App() {
 
   const RIGHT_PANEL_WIDTH = 160 * 2; // 2 panels of 160px each
   const ZOOM_OFFSET = {
-    x: -RIGHT_PANEL_WIDTH / 2,
+    x: -(RIGHT_PANEL_WIDTH * 2),
     y: 0
   }
 
