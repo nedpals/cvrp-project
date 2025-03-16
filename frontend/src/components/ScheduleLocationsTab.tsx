@@ -165,6 +165,7 @@ export default function ScheduleLocationsTab({
                 onClose={() => setIsAddLocationModalOpen(false)}
                 onAddLocation={onAddLocation}
                 schedules={schedules}
+                fixedSchedule={schedules.find(s => s.id === currentSchedule)}
             />
         </div>
     );

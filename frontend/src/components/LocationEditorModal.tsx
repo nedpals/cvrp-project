@@ -11,6 +11,7 @@ interface LocationEditorModalProps {
     location?: Location;
     onSave: (location: Location) => void;
     schedules: ScheduleEntry[];
+    fixedSchedule?: ScheduleEntry;
 }
 
 export default function LocationEditorModal({
@@ -18,7 +19,8 @@ export default function LocationEditorModal({
     onClose,
     location,
     onSave,
-    schedules
+    schedules,
+    fixedSchedule
 }: LocationEditorModalProps) {
     const { depotLat, depotLng } = useConfigStore();
     const [formData, setFormData] = useState<Partial<Location>>(
@@ -26,7 +28,7 @@ export default function LocationEditorModal({
             name: '',
             coordinates: [parseFloat(depotLat), parseFloat(depotLng)],
             wco_amount: 0,
-            disposal_schedule: 7
+            disposal_schedule: fixedSchedule?.frequency ?? 7
         }
     );
     const mapRef = useRef<MapRef>(null);
@@ -153,19 +155,25 @@ export default function LocationEditorModal({
 
                                 <div className="space-y-1">
                                     <label className="text-xs font-medium text-gray-700">Collection Schedule</label>
-                                    <select
-                                        value={formData.disposal_schedule || ''}
-                                        onChange={(e) => setFormData({...formData, disposal_schedule: parseInt(e.target.value)})}
-                                        className="w-full border border-gray-200 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                        required
-                                    >
-                                        <option value="">Select a schedule</option>
-                                        {schedules.map(schedule => (
-                                            <option key={schedule.id} value={schedule.frequency}>
-                                                {schedule.name} ({schedule.frequency} days)
-                                            </option>
-                                        ))}
-                                    </select>
+                                    {fixedSchedule ? (
+                                        <div className="w-full border border-gray-200 p-2 text-sm rounded-lg bg-gray-50 text-gray-700">
+                                            {fixedSchedule.name} ({fixedSchedule.frequency} days)
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={formData.disposal_schedule || ''}
+                                            onChange={(e) => setFormData({...formData, disposal_schedule: parseInt(e.target.value)})}
+                                            className="w-full border border-gray-200 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            required
+                                        >
+                                            <option value="">Select a schedule</option>
+                                            {schedules.map(schedule => (
+                                                <option key={schedule.id} value={schedule.frequency}>
+                                                    {schedule.name} ({schedule.frequency} days)
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                 </div>
                             </div>
 

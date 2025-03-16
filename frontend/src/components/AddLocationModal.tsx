@@ -10,6 +10,7 @@ interface AddLocationModalProps {
     onClose: () => void;
     onAddLocation: (location: Location) => void;
     schedules: ScheduleEntry[];
+    fixedSchedule?: ScheduleEntry;
 }
 
 interface RawLocation {
@@ -24,7 +25,8 @@ export default function AddLocationModal({
     isOpen,
     onClose,
     onAddLocation,
-    schedules
+    schedules,
+    fixedSchedule
 }: AddLocationModalProps) {
     const [isLocationEditorOpen, setIsLocationEditorOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -45,7 +47,7 @@ export default function AddLocationModal({
                                 name: row.name,
                                 coordinates: [parseFloat(row.latitude), parseFloat(row.longitude)],
                                 wco_amount: parseFloat(row.wco_amount || '0'),
-                                disposal_schedule: parseFloat(row.disposal_schedule || '7')
+                                disposal_schedule: fixedSchedule?.frequency ?? parseFloat(row.disposal_schedule || '7')
                             }));
                         setPreviewLocations(prev => [...prev, ...locations]);
                     } catch (error) {
@@ -96,6 +98,20 @@ export default function AddLocationModal({
 
                         {/* Content */}
                         <div className="flex-1 overflow-y-auto min-h-0 p-4">
+                            {fixedSchedule && (
+                                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                    <div className="flex gap-2 items-start">
+                                        <svg className="w-4 h-4 text-blue-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <div>
+                                            <p className="text-xs text-blue-600 mt-0.5">
+                                                All locations will be added to the "{fixedSchedule.name}" schedule ({fixedSchedule.frequency} days)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <div className="relative">
                                 {/* Timeline line */}
                                 <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-200" />
@@ -205,6 +221,7 @@ export default function AddLocationModal({
                 }}
                 schedules={schedules}
                 location={locationToEdit ?? undefined}
+                fixedSchedule={fixedSchedule}
             />
 
             <ImportModal
