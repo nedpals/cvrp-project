@@ -179,8 +179,6 @@ class VehicleRouteInfo:
     stops: List[StopInfo]
     total_collection_time: int = field(default=0)  # Total collection time in seconds
     total_travel_time: int = field(default=0)      # Total travel time in seconds
-    road_paths: List[Dict[str, Any]] = field(default_factory=list)
-    combined_path: List[RoutePathInfo] = field(default_factory=list)
     trip_paths: Dict[int, List[RoutePathInfo]] = field(default_factory=dict)
 
 @dataclass

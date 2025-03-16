@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ScheduleEntry, Location } from '../types/models';
 import ScheduleEditorModal from './ScheduleEditorModal';
 import AddLocationModal from './AddLocationModal';
@@ -10,6 +10,8 @@ interface ScheduleLocationsTabProps {
     onAddLocation: (location: Location) => void;
     onRemoveLocation: (locationId: string) => void;
     onEditLocation?: (location?: Location) => void;
+    currentSchedule?: string | null;
+    onScheduleChange?: (scheduleId: string | null) => void;
 }
 
 export default function ScheduleLocationsTab({
@@ -18,15 +20,34 @@ export default function ScheduleLocationsTab({
     onUpdateSchedules,
     onAddLocation,
     onRemoveLocation,
-    onEditLocation
+    onEditLocation,
+    currentSchedule: externalCurrentSchedule,
+    onScheduleChange
 }: ScheduleLocationsTabProps) {
-    const [currentSchedule, setCurrentSchedule] = useState<string | null>(schedules[0]?.id || null);
+    const [internalCurrentSchedule, setInternalCurrentSchedule] = useState<string | null>(
+        externalCurrentSchedule || schedules[0]?.id || null
+    );
+
+    // Update internal state when external state changes
+    useEffect(() => {
+        if (externalCurrentSchedule !== undefined) {
+            setInternalCurrentSchedule(externalCurrentSchedule);
+        }
+    }, [externalCurrentSchedule]);
+
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
     const [scheduleToEdit, setScheduleToEdit] = useState<ScheduleEntry | undefined>();
 
+    // Use external or internal state
+    const currentSchedule = externalCurrentSchedule ?? internalCurrentSchedule;
+
     const handleScheduleToggle = (scheduleId: string) => {
-        setCurrentSchedule(scheduleId);
+        if (onScheduleChange) {
+            onScheduleChange(scheduleId);
+        } else {
+            setInternalCurrentSchedule(scheduleId);
+        }
     };
 
     const handleSaveSchedule = (schedule: ScheduleEntry) => {
@@ -117,7 +138,7 @@ export default function ScheduleLocationsTab({
                     </div>
                 </div>
                 {scheduleLocations.length > 0 ? (
-                    <div className="divide-y divide-gray-50 overflow-y-auto flex-1">
+                    <div className="divide-y divide-gray-50 overflow-y-auto flex-1 pb-3">
                         {scheduleLocations.map((loc) => (
                             <div key={loc.id_num} 
                                  className="flex items-start justify-between p-2.5 hover:bg-gray-50/50 transition-colors">

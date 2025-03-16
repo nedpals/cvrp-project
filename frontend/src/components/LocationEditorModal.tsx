@@ -1,8 +1,8 @@
 import { Dialog } from '@headlessui/react';
 import { Location, ScheduleEntry } from '../types/models';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import Map from './Map';
-import { MapRef } from '../types/map';
+import { MapData, MapRef } from '../types/map';
 import { useConfigStore } from '../stores/configStore';
 
 interface LocationEditorModalProps {
@@ -58,6 +58,14 @@ export default function LocationEditorModal({
         mapRef.current?.zoomTo([lat, lng], 16);
     };
 
+    const mapData = useMemo((): MapData => ({
+        markers: formData.coordinates ? [{
+            id: 'new-location',
+            position: formData.coordinates,
+            color: 'blue'
+        }] : []
+    }), [formData.coordinates]);
+
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-[100]">
             <div className="fixed inset-0 bg-black/30 z-[100]" aria-hidden="true" />
@@ -75,14 +83,13 @@ export default function LocationEditorModal({
                         <div className="w-[600px] rounded-lg overflow-hidden border border-gray-200">
                             <Map
                                 ref={mapRef}
-                                locations={[]}
                                 center={formData.coordinates || [parseFloat(depotLat), parseFloat(depotLng)]}
-                                depotLocation={[parseFloat(depotLat), parseFloat(depotLng)]}
                                 config={{
                                     zoom_level: 12,
                                     path_weight: 3,
                                     path_opacity: 0.6
                                 }}
+                                data={mapData}
                                 onClick={handleMapClick}
                             />
                         </div>

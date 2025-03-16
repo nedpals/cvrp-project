@@ -83,7 +83,7 @@ export interface RoadPath {
 export interface RoutePathInfo {
     from_coords: [number, number];
     to_coords: [number, number];
-    path: number[][];
+    path: [number, number][];
     trip_number: number;
     travel_time_minutes: number;
 }
@@ -98,8 +98,6 @@ export interface VehicleRouteInfo {
     efficiency: number;
     collection_day: number;
     stops: StopInfo[];
-    road_paths: Record<string, RoadPath>[];
-    combined_path: RoutePathInfo[];
     trip_paths: { [key: number]: RoutePathInfo[] };
     total_collection_time: number;  // Total collection time in seconds
     total_travel_time: number;      // Total travel time in seconds

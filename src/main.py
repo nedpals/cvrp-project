@@ -168,14 +168,7 @@ class CvrpSystem:
                 visualizer.save(schedule_dir / f"routes_day{day}.html", analysis)
                 with open(schedule_dir / f"analysis_day{day}.json", 'w') as f:
                     json.dump(analysis, f, indent=2, cls=DateTimeEncoder)
-                
-                # Add road paths to analysis
-                computed_paths = visualizer.get_computed_paths()
-                if analysis.schedule_id in computed_paths:
-                    for vehicle_route in analysis.vehicle_routes:
-                        if vehicle_route.vehicle_id in computed_paths[analysis.schedule_id]:
-                            vehicle_route.road_paths = computed_paths[analysis.schedule_id][vehicle_route.vehicle_id]
-            
+
             # Create schedule summary
             summary = {
                 'schedule_id': base_id,

@@ -3,12 +3,13 @@ import Map from './components/Map';
 import { useConfig } from './hooks/useConfig';
 import { useLocations } from './hooks/useLocations';
 import { useOptimizeRoutes } from './hooks/useOptimizeRoutes';
-import { ConfigRequest, RouteResponse, StopInfo } from './types/models';
+import { ConfigRequest, StopInfo } from './types/models';
 import { useEffect, useMemo, useRef } from 'react';
 import { useFilterStore } from './stores/filterStore';
 import ResultsCard from './components/ResultsCard';
 import { useConfigStore } from './stores/configStore';
-import { MapRef } from './types/map';
+import { MapData, MapPath, MapRef } from './types/map';
+import { findStopAndVehicleInfo, getVehicleColor, createLocationPopup, createDepotPopup } from './utils/mapHelpers';
 
 function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
@@ -31,17 +32,6 @@ function App() {
     }
   }, [routes]);
 
-  const filteredRoutes = routes?.map(route => {
-    if (activeDay && route.collection_day !== activeDay) return null;
-    return {
-      ...route,
-      vehicle_routes: route.vehicle_routes.filter(vr => 
-        activeVehicles.has(vr.vehicle_id) &&
-        vr.stops.some(stop => activeTrips.has(stop.trip_number))
-      )
-    };
-  }).filter(Boolean);
-
   const activeVehicleRoutes = useMemo(() => {
     const activeRoute = routes?.find(r => r.collection_day === activeDay);
     if (!activeRoute) return [];
@@ -52,9 +42,9 @@ function App() {
   const activeLocations = useMemo(() => {
     return locations?.filter(location => {
       if (!activeVehicleRoutes) return true;
-      return activeVehicleRoutes.some(vr => 
-       (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
-        vr.stops.some(stop => 
+      return activeVehicleRoutes.some(vr =>
+        (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
+        vr.stops.some(stop =>
           (activeTrips.size === 0 || activeTrips.has(stop.trip_number)) &&
           stop.location_id === location.id)
       );
@@ -106,6 +96,36 @@ function App() {
     }
   }, [activeDay, routes]);
 
+  const mapData = useMemo((): MapData => {
+    const markers = activeLocations.map(loc => {
+      const [stopInfo, vehicleInfo, vehicleIndex] = findStopAndVehicleInfo(loc);
+      return {
+        id: loc.id,
+        position: loc.coordinates,
+        color: stopInfo && vehicleIndex >= 0 ? getVehicleColor(vehicleIndex) : 'gray',
+        popup: createLocationPopup(loc, stopInfo, vehicleInfo, vehicleIndex)
+      };
+    });
+
+    // Add depot marker always
+    markers.unshift({
+      id: 'depot',
+      position: [parseFloat(depotLat), parseFloat(depotLng)],
+      color: 'blue',
+      popup: routes ? createDepotPopup(routes) : <></>
+    });
+
+    const paths = routes?.flatMap((route) =>
+      route.vehicle_routes.flatMap<MapPath>((vr, vrIndex) => ({
+        id: `${route.schedule_id}-${vr.vehicle_id}`,
+        points: vr.trip_paths[Object.values(activeTrips)[0] ?? Object.keys(vr.trip_paths)[0]].flatMap(stop => stop.path),
+        color: getVehicleColor(vrIndex)
+      }))
+    ) || [];
+
+    return { markers, paths };
+  }, [activeLocations, activeTrips, routes, depotLat, depotLng]);
+
   return (
     <div className="h-screen w-screen relative overflow-hidden pointer-events-none">
       {/* Full-screen map */}
@@ -113,11 +133,9 @@ function App() {
         {visualConfig ? (
           <Map
             ref={mapRef}
-            locations={activeLocations}
-            depotLocation={[parseFloat(depotLat), parseFloat(depotLng)]}
             center={mapCenter}
-            routes={filteredRoutes?.filter((route): route is RouteResponse => route !== null)}
             config={visualConfig.map}
+            data={mapData}
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center bg-gray-100">
@@ -130,8 +148,8 @@ function App() {
       <div className="absolute top-4 right-0 pr-4 bottom-4 z-50 flex gap-3 overflow-hidden pointer-events-auto">
         {/* Results Card */}
         <div className="w-80 h-full pointer-events-auto flex flex-col">
-          <ResultsCard 
-            routes={routes ?? []} 
+          <ResultsCard
+            routes={routes ?? []}
             onZoomToLocation={handleZoomToCoordinates}
             onZoomToTrip={handleZoomToTrip}
           />
@@ -139,8 +157,8 @@ function App() {
 
         {/* Config Cards */}
         <div className="w-80 h-full pointer-events-auto flex flex-col">
-          <ConfigForm 
-            onSubmit={handleConfigSubmit} 
+          <ConfigForm
+            onSubmit={handleConfigSubmit}
             solvers={solvers}
             defaultSolver={defaultSolver}
             locations={locations}

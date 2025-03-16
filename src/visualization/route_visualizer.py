@@ -127,7 +127,6 @@ class RouteVisualizer:
                 combined_paths.extend(trip_paths[trip_number])
             
             # Store paths in route info
-            route_info.combined_path = combined_paths
             route_info.trip_paths = trip_paths
             
             # Store computed paths for this analysis

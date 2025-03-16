@@ -142,14 +142,6 @@ async def optimize_routes(
                     )
 
                     visualizer.add_routes(day_result)
-                    
-                    # Get computed paths and update the result
-                    computed_paths = visualizer.get_computed_paths()
-                    if day_result.schedule_id in computed_paths:
-                        for vehicle_route in day_result.vehicle_routes:
-                            if vehicle_route.vehicle_id in computed_paths[day_result.schedule_id]:
-                                vehicle_route.road_paths = computed_paths[day_result.schedule_id][vehicle_route.vehicle_id]
-                    
                     final_results.append(day_result)
                     
             except Exception as path_error:
