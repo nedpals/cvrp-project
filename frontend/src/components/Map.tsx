@@ -48,19 +48,19 @@ const MapController = forwardRef<MapRef, unknown>((_, ref) => {
         fitBounds: (coordinates: [number, number][], padding?: { x: number, y: number }) => {
             if (coordinates.length === 0) return;
 
-            const firstBounds = new L.LatLng(coordinates[0][0], coordinates[0][1]).toBounds(0.5);
             const bounds = coordinates.reduce((bounds, coord) => {
                 return bounds.extend(coord);
-            }, firstBounds);
+            }, L.latLng(coordinates[0]).toBounds(0));
             
-            // Convert the padding object to point tuple [number, number]
-            const paddingTuple: [number, number] = padding ? [padding.x, padding.y] : [0, 0];
+            const paddingOptions = padding ? {
+                paddingTopLeft: [padding.x, padding.y] as [number, number],
+            } : undefined;
             
-            map.flyToBounds(bounds, {
+            map.fitBounds(bounds, {
                 duration: 0.5,
-                maxZoom: 16,
+                maxZoom: 14,
                 animate: true,
-                padding: paddingTuple
+                ...paddingOptions
             });
         }
     }));
