@@ -58,7 +58,7 @@ const MapController = forwardRef<MapRef, unknown>((_, ref) => {
             
             map.fitBounds(bounds, {
                 duration: 0.5,
-                maxZoom: 14,
+                maxZoom: 15,
                 animate: true,
                 ...paddingOptions
             });
