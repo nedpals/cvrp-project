@@ -25,6 +25,7 @@ from solvers.nearest_neighbor_solver import NearestNeighborSolver
 from solvers.schedule_aware_solver import ScheduleAwareSolver
 
 import os
+import traceback
 from visualization.route_visualizer import RouteVisualizer
 
 app = FastAPI(
@@ -141,6 +142,8 @@ async def optimize_routes(
         return JSONResponse(content=jsonable_encoder(serializable_results))
 
     except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=str(e)

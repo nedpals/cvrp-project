@@ -1,6 +1,6 @@
 from typing import List, Set, Tuple, Iterable
 from models.location import Vehicle, RouteConstraints
-from models.shared_models import ScheduleEntry
+from models.shared_models import ScheduleEntry, Location
 from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
 from models.route_data import RouteAnalysisResult, VehicleRouteInfo, StopInfo
@@ -28,6 +28,31 @@ class CVRP:
         
         return locations
         
+    def solve_routes(self, locations: List[LocationRegistry], day: int) -> List[List[LocationRegistry]]:
+        """Use the configured solver to optimize routes for given locations"""
+        if not self.solver_class:
+            raise ValueError("No solver configured")
+            
+        solver = self.solver_class(
+            vehicles=self.vehicles,
+            locations=locations,
+            constraints=self.constraints
+        )
+        return solver.solve()
+
+    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]]) -> List[List[Location]]:
+        """Optimize routes using solver after scheduler assignments"""
+        if not self.solver_class:
+            return vehicle_assignments
+            
+        solver: BaseSolver = self.solver_class(
+            vehicles=self.vehicles,
+            locations=[loc for route in vehicle_assignments for loc in route],
+            constraints=self.constraints
+        )
+
+        return solver.solve()
+
     def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True) -> Tuple[List[RouteAnalysisResult], TripCollection]:
         """Process schedules independently.
         
@@ -97,14 +122,19 @@ class CVRP:
 
                 while len(remaining_locations) > 0:
                     # Get vehicle assignments from scheduler
-                    vehicle_assignments = self.collection_scheduler.optimize_vehicle_assignments(
+                    initial_assignments = self.collection_scheduler.optimize_vehicle_assignments(
                         vehicles=self.vehicles,
                         day=day,
                         locations=remaining_locations
                     )
 
+                    # Then use solver to optimize the routes
+                    vehicle_assignments = self.optimize_routes(
+                        vehicle_assignments=initial_assignments
+                    )
+
                     if vehicle_assignments:
-                        trip_number += 1 # Increment trip number
+                        trip_number += 1
                     
                     # Register collections
                     for v_idx, assigned_locations in enumerate(vehicle_assignments):
@@ -113,8 +143,12 @@ class CVRP:
                             
                         vehicle = self.vehicles[v_idx]
                         current_load = 0.0
-                        
+
                         for location in assigned_locations:
+                            if location is None:
+                                # Presumed depot start or end
+                                continue
+
                             location_assignments[location.id] = day
 
                             # Register collection with tracker
@@ -133,7 +167,7 @@ class CVRP:
                             processed_location_ids.add(location.id)
 
                     remaining_locations = [loc for loc in remaining_locations if loc.id not in processed_location_ids]
-            
+
             # Detailed verification of locations
             missing_locations = []
             successful_locations = []
