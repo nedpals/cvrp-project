@@ -15,7 +15,7 @@ function App() {
   const { visualConfig, solvers, defaultSolver, mapCenter } = useConfig();
   const { depotLat, depotLng } = useConfigStore();
   const { locations, addLocation, removeLocation } = useLocations();
-  const { routes, isLoading: isOptimizing, generateRoutes } = useOptimizeRoutes();
+  const { routes, isLoading: isOptimizing, generateRoutes, error, retry } = useOptimizeRoutes();
   const mapRef = useRef<MapRef>(null);
 
   const {
@@ -150,6 +150,9 @@ function App() {
             routes={routes ?? []}
             onZoomToLocation={handleZoomToCoordinates}
             onZoomToTrip={handleZoomToTrip}
+            isLoading={isOptimizing}
+            error={error}
+            onRetry={retry}
           />
         </div>
 
