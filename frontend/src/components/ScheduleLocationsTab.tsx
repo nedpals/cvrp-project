@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ScheduleEntry, Location, FREQUENCY_PRESETS } from '../types/models';
-import LocationForm from './LocationForm';
 import Papa from 'papaparse';
 
 interface ScheduleLocationsTabProps {
@@ -9,6 +8,7 @@ interface ScheduleLocationsTabProps {
     onUpdateSchedules: (schedules: ScheduleEntry[]) => void;
     onAddLocation: (location: Location) => void;
     onRemoveLocation: (locationId: string) => void;
+    onEditLocation?: (location: Location) => void;
 }
 
 interface RawLocation {
@@ -24,7 +24,8 @@ export default function ScheduleLocationsTab({
     locations,
     onUpdateSchedules,
     onAddLocation,
-    onRemoveLocation
+    onRemoveLocation,
+    onEditLocation
 }: ScheduleLocationsTabProps) {
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(schedules[0]?.id || null);
 
@@ -48,16 +49,6 @@ export default function ScheduleLocationsTab({
         // If current schedule was removed, select the first available schedule
         if (schedule.id === currentSchedule && remainingSchedules.length > 0) {
             setCurrentSchedule(remainingSchedules[0].id);
-        }
-    };
-
-    const handleAddLocation = (location: Location) => {
-        const schedule = schedules.find(s => s.id === currentSchedule);
-        if (schedule) {
-            onAddLocation({
-                ...location,
-                disposal_schedule: schedule.frequency
-            });
         }
     };
 
@@ -193,12 +184,6 @@ export default function ScheduleLocationsTab({
                 )}
             </div>
 
-            {/* Location Form */}
-            <LocationForm 
-                onAddLocation={handleAddLocation}
-                defaultFrequency={activeSchedule?.frequency}
-            />
-
             {/* Locations List */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
@@ -232,6 +217,12 @@ export default function ScheduleLocationsTab({
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
+                                </button>
+                                <button
+                                    onClick={() => onEditLocation?.(loc)}
+                                    className="text-xs px-2 py-1 rounded transition-all bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                >
+                                    Edit
                                 </button>
                             </div>
                         ))}

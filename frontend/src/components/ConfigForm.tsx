@@ -5,6 +5,7 @@ import { useSchedules } from '../hooks/useSchedules';
 import { useVehicles } from '../hooks/useVehicles';
 import { downloadConfigAsJson } from '../services/api';
 import { useConfigStore } from '../stores/configStore';
+import LocationEditorModal from './LocationEditorModal';
 
 interface ConfigFormProps {
     onSubmit: (config: ConfigRequest) => void;
@@ -30,6 +31,8 @@ export default function ConfigForm({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [configError, setConfigError] = useState<string | null>(null);
     const [openSections, setOpenSections] = useState<Set<string>>(new Set([]));
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+    const [editingLocation, setEditingLocation] = useState<Location | undefined>();
 
     const {
         depotLat,
@@ -136,11 +139,20 @@ export default function ConfigForm({
         setOpenSections(newSections);
     };
 
+    const handleLocationSave = (location: Location) => {
+        if (editingLocation) {
+            // If editing, remove old location and add updated one
+            onRemoveLocation(editingLocation.id);
+        }
+        onAddLocation(location);
+        setEditingLocation(undefined);
+    };
+
     return (
         <div className="space-y-2 h-full flex flex-col">
             {/* Route Configuration Card */}
             <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden">
-                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white sticky top-0 z-10 shadow-sm flex justify-between items-center">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white sticky top-0 z-0 shadow-sm flex justify-between items-center">
                     <h2 className="text-sm font-medium text-gray-900">Route Configuration</h2>
                     <div className="flex gap-1.5">
                         <button
@@ -372,20 +384,31 @@ export default function ConfigForm({
             <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden flex-1">
                 <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex justify-between items-center">
                     <h2 className="text-sm font-medium text-gray-900">Locations & Schedules</h2>
-                    <button
-                        onClick={() => {
-                            const newSchedule = {
-                                id: `s${schedules.length + 1}`,
-                                name: `Schedule ${schedules.length + 1}`,
-                                frequency: 7,
-                                file: 'schedule.json'
-                            };
-                            setSchedules([...schedules, newSchedule]);
-                        }}
-                        className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
-                    >
-                        New Schedule
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => {
+                                setEditingLocation(undefined);
+                                setIsLocationModalOpen(true);
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                        >
+                            Add Location
+                        </button>
+                        <button
+                            onClick={() => {
+                                const newSchedule = {
+                                    id: `s${schedules.length + 1}`,
+                                    name: `Schedule ${schedules.length + 1}`,
+                                    frequency: 7,
+                                    file: 'schedule.json'
+                                };
+                                setSchedules([...schedules, newSchedule]);
+                            }}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                        >
+                            New Schedule
+                        </button>
+                    </div>
                 </div>
                 <div className="p-3">
                     <ScheduleLocationsTab
@@ -394,9 +417,24 @@ export default function ConfigForm({
                         onUpdateSchedules={setSchedules}
                         onAddLocation={onAddLocation}
                         onRemoveLocation={onRemoveLocation}
+                        onEditLocation={(location) => {
+                            setEditingLocation(location);
+                            setIsLocationModalOpen(true);
+                        }}
                     />
                 </div>
             </div>
+
+            <LocationEditorModal
+                isOpen={isLocationModalOpen}
+                onClose={() => {
+                    setIsLocationModalOpen(false);
+                    setEditingLocation(undefined);
+                }}
+                location={editingLocation}
+                onSave={handleLocationSave}
+                schedules={schedules}
+            />
         </div>
     );
 }

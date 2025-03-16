@@ -1,12 +1,13 @@
+import { Point } from 'leaflet';
 import { forwardRef, useImperativeHandle } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.awesome-markers/dist/leaflet.awesome-markers.css';
-import { Location, RouteResponse, Coordinates, StopInfo, VehicleRouteInfo } from '../types/models';
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapRef } from '../types/map';
+import { Coordinates, Location, RouteResponse, StopInfo, VehicleRouteInfo } from '../types/models';
 import { createDepotMarker, createLocationMarker } from '../utils/mapIcons';
 import RoutePathLayer from './RoutePathLayer';
-import { MapRef } from '../types/map';
-import { Point } from 'leaflet';
+
+import 'leaflet.awesome-markers/dist/leaflet.awesome-markers.css';
+import 'leaflet/dist/leaflet.css';
 
 interface MapConfig {
     zoom_level: number;
@@ -20,9 +21,19 @@ interface MapProps {
     depotLocation: Coordinates;
     routes?: RouteResponse[];
     config: MapConfig;
+    onClick?: (lat: number, lng: number) => void;
 }
 
 const VEHICLE_COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+
+const MapClickHandler = ({ onClick }: { onClick?: (lat: number, lng: number) => void }) => {
+    useMapEvents({
+        click: (e) => {
+            onClick?.(e.latlng.lat, e.latlng.lng);
+        },
+    });
+    return null;
+};
 
 const MapController = forwardRef<MapRef, unknown>((_, ref) => {
     const map = useMap();
@@ -74,7 +85,8 @@ const Map = forwardRef<MapRef, MapProps>(({
     center, 
     depotLocation, 
     routes, 
-    config 
+    config,
+    onClick
 }, ref) => {
     const getVehicleColor = (vehicleIndex: number) => VEHICLE_COLORS[vehicleIndex % VEHICLE_COLORS.length];
 
@@ -85,6 +97,7 @@ const Map = forwardRef<MapRef, MapProps>(({
             className="h-full w-full z-0"
         >
             <MapController ref={ref} />
+            {onClick && <MapClickHandler onClick={onClick} />}
             <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

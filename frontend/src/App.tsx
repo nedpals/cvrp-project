@@ -127,7 +127,7 @@ function App() {
       </div>
 
       {/* Right Side - Configuration and Results */}
-      <div className="absolute top-4 right-0 pr-4 pb-4 h-full z-[1000] flex gap-3">
+      <div className="absolute top-4 right-0 pr-4 pb-4 h-full z-50 flex gap-3">
         {/* Results Card */}
         <div className="w-80 pointer-events-auto">
           <ResultsCard 
