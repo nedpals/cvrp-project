@@ -32,7 +32,8 @@ export default function ImportModal({ isOpen, onClose, onComplete }: ImportModal
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'text/csv': ['.csv']
+            'text/csv': ['.csv'],
+            'application/json': ['.json']
         },
         multiple: true
     });
@@ -76,7 +77,7 @@ export default function ImportModal({ isOpen, onClose, onComplete }: ImportModal
                                     )}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                    Only .csv files are supported
+                                    .csv and .json files are supported
                                 </div>
                             </div>
                         </div>

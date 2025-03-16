@@ -2,8 +2,7 @@ import { Dialog } from '@headlessui/react';
 import { Location, ScheduleEntry } from '../types/models';
 import { useState } from 'react';
 import LocationEditorModal from './LocationEditorModal';
-import ImportModal from './ImportModal';
-import Papa from 'papaparse';
+import BulkImportWrapper from './BulkImportWrapper';
 
 interface AddLocationModalProps {
     isOpen: boolean;
@@ -11,14 +10,6 @@ interface AddLocationModalProps {
     onAddLocation: (location: Location) => void;
     schedules: ScheduleEntry[];
     fixedSchedule?: ScheduleEntry;
-}
-
-interface RawLocation {
-    name: string;
-    latitude: string;
-    longitude: string;
-    wco_amount: string;
-    disposal_schedule?: string;
 }
 
 export default function AddLocationModal({
@@ -32,34 +23,6 @@ export default function AddLocationModal({
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [previewLocations, setPreviewLocations] = useState<Location[]>([]);
     const [locationToEdit, setLocationToEdit] = useState<Location | null>(null);
-
-    const handleFilesReceived = (files: File[]) => {
-        files.forEach(file => {
-            Papa.parse<RawLocation>(file, {
-                header: true,
-                complete: (results) => {
-                    try {
-                        const locations: Location[] = results.data
-                            .filter(row => row.name && row.latitude && row.longitude)
-                            .map((row, index) => ({
-                                id: `${file.name}_${index}`,
-                                id_num: index,
-                                name: row.name,
-                                coordinates: [parseFloat(row.latitude), parseFloat(row.longitude)],
-                                wco_amount: parseFloat(row.wco_amount || '0'),
-                                disposal_schedule: fixedSchedule?.frequency ?? parseFloat(row.disposal_schedule || '7')
-                            }));
-                        setPreviewLocations(prev => [...prev, ...locations]);
-                    } catch (error) {
-                        console.error(`Error parsing ${file.name}:`, error);
-                    }
-                },
-                error: (error) => {
-                    console.error(`Error reading ${file.name}:`, error.message);
-                }
-            });
-        });
-    };
 
     const handleAddAll = () => {
         previewLocations.forEach(onAddLocation);
@@ -224,10 +187,13 @@ export default function AddLocationModal({
                 fixedSchedule={fixedSchedule}
             />
 
-            <ImportModal
+            <BulkImportWrapper
                 isOpen={isImportModalOpen}
                 onClose={() => setIsImportModalOpen(false)}
-                onComplete={handleFilesReceived}
+                onAddLocation={(location) => {
+                    setPreviewLocations(prev => [...prev, location]);
+                }}
+                fixedSchedule={fixedSchedule}
             />
         </>
     );

@@ -6,6 +6,7 @@ import { useVehicles } from '../hooks/useVehicles';
 import { downloadConfigAsJson } from '../services/api';
 import { useConfigStore } from '../stores/configStore';
 import LocationEditorModal from './LocationEditorModal';
+import BulkImportWrapper from './BulkImportWrapper';
 
 interface ConfigFormProps {
     onSubmit: (config: ConfigRequest) => void;
@@ -34,6 +35,7 @@ export default function ConfigForm({
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
     const [editingLocation, setEditingLocation] = useState<Location | undefined>();
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
+    const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
     const {
         depotLat,
@@ -384,8 +386,14 @@ export default function ConfigForm({
 
             {/* Locations/Schedules Card */}
             <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border border-gray-200/50 overflow-hidden mt-3 flex flex-col flex-1 min-h-0">
-                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex-shrink-0">
+                <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white shadow-sm flex-shrink-0 flex justify-between items-center">
                     <h2 className="text-sm font-medium text-gray-900">Schedules</h2>
+                    <button
+                        onClick={() => setIsBulkImportOpen(true)}
+                        className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
+                    >
+                        Bulk Import
+                    </button>
                 </div>
                 <div className="flex-1 overflow-auto">
                     <ScheduleLocationsTab
@@ -414,6 +422,11 @@ export default function ConfigForm({
                 onSave={handleLocationSave}
                 schedules={schedules}
             />
+
+            <BulkImportWrapper
+                isOpen={isBulkImportOpen}
+                onClose={() => setIsBulkImportOpen(false)}
+                onAddLocation={onAddLocation} />
         </div>
     );
 }
