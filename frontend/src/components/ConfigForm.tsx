@@ -33,6 +33,7 @@ export default function ConfigForm({
     const [openSections, setOpenSections] = useState<Set<string>>(new Set([]));
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
     const [editingLocation, setEditingLocation] = useState<Location | undefined>();
+    const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
 
     const {
         depotLat,
@@ -90,9 +91,10 @@ export default function ConfigForm({
                     setVehicles(config.vehicles);
                 }
                 
-                // Update schedules
+                // Update schedules and set current schedule
                 if (config.schedules && Array.isArray(config.schedules)) {
                     setSchedules(config.schedules);
+                    setCurrentSchedule(config.schedules[0]?.id || null);
                 }
                 
                 // Update solver if it exists in our available solvers
@@ -396,6 +398,8 @@ export default function ConfigForm({
                             setEditingLocation(location);
                             setIsLocationModalOpen(true);
                         }}
+                        currentSchedule={currentSchedule}
+                        onScheduleChange={setCurrentSchedule}
                     />
                 </div>
             </div>
