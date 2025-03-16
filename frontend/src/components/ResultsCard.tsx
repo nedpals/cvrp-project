@@ -171,6 +171,7 @@ export default function ResultsCard({
   useEffect(() => {
     if (activeTrip && allActiveTripStops) {
       onZoomToTrip(allActiveTripStops);
+      onLocationSelect(null);
     }
   }, [activeTrip, allActiveTripStops]);
 
@@ -200,15 +201,21 @@ export default function ResultsCard({
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 h-full">
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-          <div className="text-red-500">Error: {error}</div>
+      <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
+        <div className="px-3 py-2 border-b border-gray-100 bg-white sticky top-0 z-20">
+          <h1 className="font-semibold text-gray-900">Results</h1>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+          <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl border border-red-100 text-center max-w-md">
+            <p className="font-medium mb-1">Error</p>
+            <p className="text-red-500 text-sm">{error}</p>
+          </div>
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
             >
-              Retry
+              Try Again
             </button>
           )}
         </div>
