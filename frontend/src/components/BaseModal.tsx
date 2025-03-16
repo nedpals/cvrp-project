@@ -43,7 +43,7 @@ export default function BaseModal({
     size = 'md'
 }: BaseModalProps) {
     const parentZIndex = useContext(ModalContext);
-    const currentZIndex = parentZIndex + 10;
+    const currentZIndex = parentZIndex + 50;
 
     return (
         <Dialog 
