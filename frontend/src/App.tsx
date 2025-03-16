@@ -104,7 +104,10 @@ function App() {
         mapRef.current?.fitBounds(bounds, ZOOM_OFFSET);
       }, 50);
     } else {
-      mapRef.current?.zoomTo(coordinates, 16, ZOOM_OFFSET);
+      mapRef.current?.zoomTo(coordinates, 16, {
+        x: RIGHT_PANEL_WIDTH,
+        y: 0
+      });
     }
   };
 
