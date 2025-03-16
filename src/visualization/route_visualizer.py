@@ -168,10 +168,32 @@ class RouteVisualizer:
                        route_info: VehicleRouteInfo, color: str) -> List[RoutePathInfo]:
         """Add route visualization for a single trip."""
         paths = []
-        route_coords = [self.center] + [stop.coordinates for stop in stops] + [self.center]
+        # No longer add center coordinates - use stops list directly which includes depot
+        route_coords = [stop.coordinates for stop in stops]
         
         # Add stop markers with enhanced information
         for i, stop in enumerate(stops):
+            # Skip depot markers as they're handled separately
+            if 'depot_start_' in stop.location_id or 'depot_end_' in stop.location_id:
+                depot_html = f"""
+                    <div style='font-family: Arial'>
+                        <b>Depot - Vehicle {route_info.vehicle_id}</b><br>
+                        Trip #{trip_number}<br>
+                        Vehicle Capacity: {route_info.capacity:.2f}L
+                    </div>
+                """
+                marker = folium.Marker(
+                    location=stop.coordinates,
+                    icon=folium.Icon(
+                        color=color,
+                        icon='home' if 'depot_start_' in stop.location_id else 'flag',
+                        prefix='fa'
+                    )
+                )
+                marker.add_to(self.map)
+                folium.Popup(depot_html, max_width=300).add_to(marker)
+                continue
+
             capacity_used = (stop.cumulative_load / route_info.capacity * 100)
             capacity_color = self._get_capacity_color(capacity_used)
             
@@ -184,7 +206,6 @@ class RouteVisualizer:
                 icon=folium.Icon(color=color, icon='info-sign')
             )
             marker.add_to(self.map)
-            # Add popup separately
             folium.Popup(stop_html, max_width=300).add_to(marker)
 
         # Add route lines

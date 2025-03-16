@@ -131,7 +131,6 @@ export default function ResultsCard({
     setActiveVehicles,
     setActiveTrip,
   } = useFilterStore();
-  const { depotLat, depotLng } = useConfigStore();
   const currentRoute = useMemo(() => routes.length !== 0 ? routes[0] : null, [routes]);
 
   const toggleVehicle = (vehicleId: string) => {
@@ -154,7 +153,7 @@ export default function ResultsCard({
     return Array.from(trips).sort((a, b) => a - b);
   };
 
-  const trips = useMemo(() => getAllTrips(), [currentRoute]);
+  const trips = useMemo(getAllTrips, [currentRoute]);
   const showTripControls = trips.length > 1;
   
   const totalWco = useMemo(() => {
@@ -345,43 +344,29 @@ export default function ResultsCard({
 
             {activeVehicles.has(vr.vehicle_id) && activeTrip && (
               <div className="py-2 border-t border-gray-100 divide-y divide-gray-50">
-                {/* Depot Start */}
-                <div 
-                  className="px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100/50"
-                  onClick={() => onZoomToLocation([parseFloat(depotLat), parseFloat(depotLng)])}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                      S
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-xs truncate text-gray-900">
-                        Depot
-                      </div>
-                      <div className="text-[10px] text-gray-500">
-                        Start Location
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Regular Stops */}
                 {vr.stops
                   .filter(stop => stop.trip_number === activeTrip)
-                  .map((stop: StopInfo) => {
+                  .map((stop: StopInfo, idx, stops) => {
                     const isSelected = isStopSelected(stop);
-                    const isNextStop = selectedLocationId && vr.stops.findIndex(s => s.location_id === selectedLocationId) + 1 === stop.sequence_number;
+                    const isDepotStart = stop.location_id.startsWith('depot_start_');
+                    const isDepotEnd = stop.location_id.startsWith('depot_end_');
+                    const isNextStop = !isDepotStart && selectedLocationId && 
+                        idx == stops.findIndex(s => s.location_id === selectedLocationId) + 1;
                     
                     return (
                       <div
                         key={stop.sequence_number}
                         className={cn(
                           "px-4 py-2 transition-colors cursor-pointer",
-                          isSelected 
-                            ? "bg-blue-50 hover:bg-blue-100/80"
+                          isSelected
+                            ? isDepotStart
+                              ? "bg-purple-50 text-purple-600 border-purple-600/20"
+                              : "bg-blue-50 text-blue-600 border-blue-600/20"
                             : isNextStop
-                            ? "bg-green-50 hover:bg-green-100/80"
-                            : "hover:bg-gray-50/50"
+                              ? isDepotEnd
+                                ? "bg-orange-50 text-orange-600 border-orange-600/20" 
+                                : "bg-green-50 text-green-600 border-green-600/20"
+                              : "bg-gray-50 text-gray-600 border-gray-50/50"
                         )}
                         onClick={() => {
                           if (isSelected) {
@@ -394,25 +379,37 @@ export default function ResultsCard({
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium border",
-                            isSelected
-                              ? "bg-blue-50 text-blue-600 border-blue-200"
-                              : isNextStop
-                              ? "bg-green-50 text-green-600 border-green-200"
-                              : "bg-blue-50 text-blue-600 border-blue-100"
+                            isDepotStart
+                              ? "bg-purple-50 text-purple-600 border-purple-600"
+                              : isDepotEnd
+                                ? "bg-orange-50 text-orange-600 border-orange-600"
+                                : isSelected
+                                  ? "bg-blue-50 text-blue-600 border-blue-600"
+                                  : isNextStop
+                                    ? "bg-green-50 text-green-600 border-green-600"
+                                    : "bg-blue-50 text-blue-600 border-blue-600"
                           )}>
-                            {stop.sequence_number + 1}
+                            {isDepotStart ? 'S' : 
+                             isDepotEnd ? 'E' : 
+                             stop.sequence_number + 1}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={cn(
                               "font-medium text-xs truncate",
+                              isDepotStart ? "text-purple-900" :
+                              isDepotEnd ? "text-orange-900" :
                               isSelected ? "text-blue-900" : 
                               isNextStop ? "text-green-900" :
                               "text-gray-900"
                             )}>
-                              {stop.name}
+                              {isDepotStart ? 'Depot (Start)' :
+                               isDepotEnd ? 'Depot (End)' :
+                               stop.name}
                             </div>
                             <div className={cn(
                               "text-[10px]",
+                              isDepotStart ? "text-purple-500" :
+                              isDepotEnd ? "text-orange-500" :
                               isSelected ? "text-blue-500" :
                               isNextStop ? "text-green-500" :
                               "text-gray-500"
@@ -424,26 +421,6 @@ export default function ResultsCard({
                       </div>
                     );
                   })}
-
-                {/* Depot End */}
-                <div 
-                  className="px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100/50"
-                  onClick={() => onZoomToLocation([parseFloat(depotLat), parseFloat(depotLng)])}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                      E
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-xs truncate text-gray-900">
-                        Depot
-                      </div>
-                      <div className="text-[10px] text-gray-500">
-                        End Location
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>

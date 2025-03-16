@@ -246,11 +246,27 @@ class CVRP:
                 vehicle_collection_time = 0
                 vehicle_travel_time = 0
 
+                # Add depot start stop
+                depot_start = StopInfo(
+                    name="Depot",  # Changed name
+                    location_id=f"depot_start_{vehicle.id}",  # Changed ID format
+                    coordinates=vehicle.depot_location,
+                    wco_amount=0,
+                    trip_number=1,
+                    cumulative_load=0,
+                    remaining_capacity=vehicle.capacity,
+                    distance_from_depot=0,
+                    distance_from_prev=0,
+                    vehicle_capacity=vehicle.capacity,
+                    sequence_number=-1,
+                    collection_day=day
+                )
+                stops_data.append(depot_start)
+
+                # Process regular stops
                 total_locations += len(route.stops)
-                
                 for i, stop in enumerate(route.stops):
                     location_data = locations.get_by_id(stop.location_id)
-                    # Calculate remaining capacity after this stop
                     remaining_capacity = vehicle.capacity - stop.cumulative_load
                     
                     stop_info = StopInfo(
@@ -260,19 +276,34 @@ class CVRP:
                         wco_amount=stop.amount_collected,
                         trip_number=stop.trip_number,
                         cumulative_load=stop.cumulative_load,
-                        remaining_capacity=remaining_capacity,  # Set calculated remaining capacity
+                        remaining_capacity=remaining_capacity,
                         distance_from_depot=location_data.distance_from_depot,
                         distance_from_prev=stop.distance_from_prev,
                         vehicle_capacity=vehicle.capacity,
                         sequence_number=i,
-                        collection_day=day  # Add collection day
+                        collection_day=day
                     )
                     stops_data.append(stop_info)
                     vehicle_collected += stop.amount_collected
-                
-                    # Track times
                     vehicle_collection_time += stop.collection_time
                     vehicle_travel_time += stop.travel_time
+
+                # Add depot end stop
+                depot_end = StopInfo(
+                    name="Depot",  # Changed name
+                    location_id=f"depot_end_{vehicle.id}",  # Changed ID format
+                    coordinates=vehicle.depot_location,
+                    wco_amount=0,
+                    trip_number=max(stop.trip_number for stop in route.stops) if route.stops else 1,
+                    cumulative_load=vehicle_collected,
+                    remaining_capacity=0,
+                    distance_from_depot=0,
+                    distance_from_prev=stops_data[-1].distance_from_depot if stops_data else 0,
+                    vehicle_capacity=vehicle.capacity,
+                    sequence_number=len(route.stops),
+                    collection_day=day
+                )
+                stops_data.append(depot_end)
 
                 vehicle_route = VehicleRouteInfo(
                     vehicle_id=vehicle.id,
@@ -297,7 +328,9 @@ class CVRP:
 
             # Calculate totals across all vehicles
             total_trips = sum(route.total_trips for route in vehicle_routes)
-            total_stops = sum(route.total_stops for route in vehicle_routes)
+            total_stops = sum(len(route.stops) for route in vehicle_routes if route.stops)  # Regular stops
+            total_depot_stops = sum(2 for route in vehicle_routes if route.stops)  # 2 depot stops per used vehicle
+            total_stops_with_depot = total_stops + total_depot_stops
             
             day_result = RouteAnalysisResult(
                 schedule_id=f"{schedule_id}_day{day}",  # Unique ID for each day
@@ -308,7 +341,7 @@ class CVRP:
                 total_distance=total_distance,
                 total_collected=total_collected,
                 total_trips=total_trips,
-                total_stops=total_stops,
+                total_stops=total_stops_with_depot,  # Now includes depot stops
                 collection_day=day,
                 vehicle_routes=vehicle_routes,
                 base_schedule_id=schedule_id,  # Add reference to original schedule
