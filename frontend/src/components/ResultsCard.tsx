@@ -3,6 +3,7 @@ import { useFilterStore } from '../stores/filterStore';
 import { useConfigStore } from '../stores/configStore';
 import { cn } from '../utils/utils';
 import { useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 
 interface ResultsCardProps {
   routes: RouteResponse[];
@@ -20,6 +21,39 @@ const formatDuration = (seconds: number) => {
     return `${hours}h ${minutes}m`;
   }
   return `${minutes}m`;
+};
+
+const exportToExcel = (route: RouteResponse) => {
+  const workbook = XLSX.utils.book_new();
+  
+  // Summary sheet
+  const summaryData = [
+    ['Total Stops', route.total_stops],
+    ['Total Distance (km)', route.total_distance],
+    ['Total Travel Time', formatDuration(route.total_travel_time)],
+    ['Total Vehicles', route.total_vehicles],
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+  // Vehicle routes sheet
+  const routesData = [['Vehicle ID', 'Stop Number', 'Location Name', 'Collection Amount (L)', 'Trip Number']];
+  route.vehicle_routes.forEach(vr => {
+    vr.stops.forEach(stop => {
+      routesData.push([
+        vr.vehicle_id,
+        JSON.stringify(stop.sequence_number + 1),
+        stop.name,
+        JSON.stringify(stop.wco_amount),
+        JSON.stringify(stop.trip_number)
+      ]);
+    });
+  });
+  const routesSheet = XLSX.utils.aoa_to_sheet(routesData);
+  XLSX.utils.book_append_sheet(workbook, routesSheet, 'Routes');
+
+  // Save the file
+  XLSX.writeFile(workbook, `route_export_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 export default function ResultsCard({ 
@@ -105,7 +139,7 @@ export default function ResultsCard({
         <div className="flex items-center justify-between">
           <h1 className="font-semibold text-gray-900">Results</h1>
           <button
-            onClick={() => {}} // TODO: Implement export functionality
+            onClick={() => currentRoute && exportToExcel(currentRoute)}
             className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             Export Route

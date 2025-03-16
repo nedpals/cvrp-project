@@ -3,6 +3,7 @@ import ImportModal from './ImportModal';
 import ScheduleResolutionModal from './ScheduleResolutionModal';
 import Papa from 'papaparse';
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 
 interface BulkImportWrapperProps {
     isOpen: boolean;
@@ -76,6 +77,23 @@ export default function BulkImportWrapper({
                             error: () => resolve()
                         });
                     });
+                } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const workbook = XLSX.read(arrayBuffer);
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const data = XLSX.utils.sheet_to_json<RawLocation>(worksheet);
+                    
+                    const locations = data
+                        .filter(row => row.name && row.latitude && row.longitude)
+                        .map((row, index) => ({
+                            id: `${file.name}_${index}`,
+                            id_num: index,
+                            name: row.name,
+                            coordinates: [parseFloat(row.latitude.toString()), parseFloat(row.longitude.toString())] as [number, number],
+                            wco_amount: parseFloat(row.wco_amount?.toString() || '0'),
+                            disposal_schedule: fixedSchedule?.frequency ?? parseFloat(row.disposal_schedule?.toString() || '7')
+                        }));
+                    allLocations.push(...locations);
                 } else if (file.name.endsWith('.json')) {
                     const text = await file.text();
                     try {

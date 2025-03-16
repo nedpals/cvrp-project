@@ -33,7 +33,9 @@ export default function ImportModal({ isOpen, onClose, onComplete }: ImportModal
         onDrop,
         accept: {
             'text/csv': ['.csv'],
-            'application/json': ['.json']
+            'application/json': ['.json'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+            'application/vnd.ms-excel': ['.xls']
         },
         multiple: true
     });
@@ -65,13 +67,13 @@ export default function ImportModal({ isOpen, onClose, onComplete }: ImportModal
                             </svg>
                             <div className="text-sm text-gray-600">
                                 {isDragActive ? (
-                                    <p>Drop the CSV file here</p>
+                                    <p>Drop the files here</p>
                                 ) : (
-                                    <p>Drag & drop a CSV file here, or click to select</p>
+                                    <p>Drag & drop files here, or click to select</p>
                                 )}
                             </div>
                             <div className="text-xs text-gray-500">
-                                .csv and .json files are supported
+                                .csv, .xlsx, .xls and .json files are supported
                             </div>
                         </div>
                     </div>
