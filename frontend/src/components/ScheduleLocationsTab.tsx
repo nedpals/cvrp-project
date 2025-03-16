@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScheduleEntry, Location } from '../types/models';
-import Papa from 'papaparse';
 import ScheduleEditorModal from './ScheduleEditorModal';
+import AddLocationModal from './AddLocationModal';
 
 interface ScheduleLocationsTabProps {
     schedules: ScheduleEntry[];
@@ -10,14 +10,6 @@ interface ScheduleLocationsTabProps {
     onAddLocation: (location: Location) => void;
     onRemoveLocation: (locationId: string) => void;
     onEditLocation?: (location?: Location) => void;
-}
-
-interface RawLocation {
-    name: string;
-    latitude: string;
-    longitude: string;
-    wco_amount: string;
-    disposal_schedule?: string;
 }
 
 export default function ScheduleLocationsTab({
@@ -30,48 +22,11 @@ export default function ScheduleLocationsTab({
 }: ScheduleLocationsTabProps) {
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(schedules[0]?.id || null);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isAddLocationModalOpen, setIsAddLocationModalOpen] = useState(false);
     const [scheduleToEdit, setScheduleToEdit] = useState<ScheduleEntry | undefined>();
 
     const handleScheduleToggle = (scheduleId: string) => {
         setCurrentSchedule(scheduleId);
-    };
-
-    const [uploadError, setUploadError] = useState<string>();
-
-    const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files) return;
-
-        Array.from(files).forEach(file => {
-            Papa.parse<RawLocation>(file, {
-                header: true,
-                complete: (results) => {
-                    try {
-                        const newLocations: Location[] = results.data.map((row, index) => ({
-                            id: `${file.name}_${index}`,
-                            id_num: index,
-                            name: row.name,
-                            coordinates: [parseFloat(row.latitude), parseFloat(row.longitude)],
-                            wco_amount: parseFloat(row.wco_amount),
-                            disposal_schedule: parseFloat(row.disposal_schedule || '7')
-                        }));
-
-                        // Auto-add all parsed locations
-                        newLocations.forEach(onAddLocation);
-                        setUploadError(undefined);
-                    } catch (error) {
-                        setUploadError(`Error parsing ${file.name}: ${error}`);
-                        console.error(error);
-                    }
-                },
-                error: (error) => {
-                    setUploadError(`Error reading ${file.name}: ${error.message}`);
-                }
-            });
-        });
-        
-        // Clear the input
-        event.target.value = '';
     };
 
     const handleSaveSchedule = (schedule: ScheduleEntry) => {
@@ -143,31 +98,6 @@ export default function ScheduleLocationsTab({
                 onSave={handleSaveSchedule}
             />
 
-            {/* CSV Upload */}
-            <div className="bg-white p-2.5 rounded-lg border border-gray-200 shadow-sm">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                    Import Locations (CSV)
-                </label>
-                <input
-                    type="file"
-                    accept=".csv"
-                    multiple
-                    onChange={handleCsvUpload}
-                    className="w-full text-xs text-gray-500
-                        file:mr-2 file:py-1.5 file:px-3
-                        file:rounded-lg file:border-0
-                        file:text-xs file:font-medium
-                        file:bg-blue-50 file:text-blue-600
-                        hover:file:bg-blue-100
-                        file:transition-colors"
-                />
-                {uploadError && (
-                    <div className="mt-1.5 text-xs p-2 bg-red-50 rounded-lg border border-red-100 text-red-500">
-                        {uploadError}
-                    </div>
-                )}
-            </div>
-
             {/* Locations List */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
@@ -176,7 +106,7 @@ export default function ScheduleLocationsTab({
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">{scheduleLocations.length} total</span>
                             <button
-                                onClick={() => onEditLocation?.(undefined)}
+                                onClick={() => setIsAddLocationModalOpen(true)}
                                 className="text-xs px-3 py-1.5 rounded-lg transition-all bg-blue-50 hover:bg-blue-100 text-blue-600"
                             >
                                 Add Location
@@ -194,7 +124,7 @@ export default function ScheduleLocationsTab({
                                         <div className="w-5 h-5 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-medium border border-blue-100">
                                             {loc.id_num + 1}
                                         </div>
-                                        <div className="truncate">
+                                        <div className="space-y-1">
                                             <div className="font-medium text-gray-900 text-xs truncate">
                                                 {loc.name}
                                             </div>
@@ -227,6 +157,13 @@ export default function ScheduleLocationsTab({
                     </div>
                 )}
             </div>
+
+            <AddLocationModal
+                isOpen={isAddLocationModalOpen}
+                onClose={() => setIsAddLocationModalOpen(false)}
+                onAddLocation={onAddLocation}
+                schedules={schedules}
+            />
         </div>
     );
 }
