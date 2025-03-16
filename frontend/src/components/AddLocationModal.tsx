@@ -105,8 +105,8 @@ export default function AddLocationModal({
                                     {previewLocations.map((loc) => (
                                         <div key={loc.id} className="relative pl-8 group">
                                             {/* Timeline dot */}
-                                            <div className="absolute left-0 w-4 h-4 rounded-full bg-white border-2 border-blue-500 mt-3 group-hover:bg-blue-50 transition-colors" />
-                                            <div className="p-3 rounded-lg group-hover:bg-gray-50 transition-colors relative flex flex-col">
+                                            <div className="absolute left-[1px] w-4 h-4 rounded-full bg-white border-2 border-blue-500 mt-3 group-hover:bg-blue-50 transition-colors" />
+                                            <div className="p-2 rounded-lg group-hover:bg-gray-50 transition-colors relative flex flex-col">
                                                 <div className="font-medium text-sm flex items-center justify-between">
                                                     <span className="leading-6">{loc.name}</span>
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -142,7 +142,7 @@ export default function AddLocationModal({
                                                 <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
                                             </svg>
                                         </div>
-                                        <div className="p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                        <div className="p-2 rounded-lg hover:bg-gray-50 transition-colors">
                                             <button
                                                 onClick={() => setIsLocationEditorOpen(true)}
                                                 className="w-full text-left"
