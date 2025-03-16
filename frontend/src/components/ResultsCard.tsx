@@ -12,6 +12,8 @@ interface ResultsCardProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  selectedLocationId: string | null;
+  onLocationSelect: (locationId: string | null) => void;
 }
 
 const formatDuration = (seconds: number) => {
@@ -119,7 +121,9 @@ export default function ResultsCard({
   onZoomToTrip,
   isLoading,
   error,
-  onRetry
+  onRetry,
+  selectedLocationId,
+  onLocationSelect
 }: ResultsCardProps) {
   const {
     activeVehicles,
@@ -160,15 +164,30 @@ export default function ResultsCard({
     }, 0);
   }, [currentRoute]);
 
+  const allActiveTripStops = useMemo(() => {
+    if (!currentRoute) return [];
+    return currentRoute.vehicle_routes.flatMap(vr => vr.stops).filter(stop => stop.trip_number === activeTrip);
+  }, [currentRoute, activeTrip]);
+
   useEffect(() => {
-    console.log(currentRoute);
-    if (activeTrip && currentRoute) {
-      const tripStops = currentRoute.vehicle_routes
-        .flatMap(vr => vr.stops)
-        .filter(stop => stop.trip_number === activeTrip);
-      onZoomToTrip(tripStops);
+    if (activeTrip && allActiveTripStops) {
+      onZoomToTrip(allActiveTripStops);
     }
-  }, [activeTrip, currentRoute]);
+  }, [activeTrip, allActiveTripStops]);
+
+  useEffect(() => {
+    // zoom in to location when selected, if not zoom out to trip
+    if (selectedLocationId) {
+      const stop = currentRoute?.vehicle_routes.flatMap(vr => vr.stops).find(stop => stop.location_id === selectedLocationId);
+      if (stop) {
+        onZoomToLocation(stop.coordinates);
+      }
+    } else if (activeTrip) {
+      onZoomToTrip(allActiveTripStops);
+    }
+  }, [selectedLocationId, allActiveTripStops])
+
+  const isStopSelected = (stop: StopInfo) => selectedLocationId === stop.location_id;
 
   if (isLoading) {
     return (
@@ -349,27 +368,62 @@ export default function ResultsCard({
                 {/* Regular Stops */}
                 {vr.stops
                   .filter(stop => stop.trip_number === activeTrip)
-                  .map((stop: StopInfo) => (
-                    <div
-                      key={stop.sequence_number}
-                      className="px-4 py-2 transition-colors hover:bg-gray-50/50 cursor-pointer"
-                      onClick={() => onZoomToLocation(stop.coordinates)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                          {stop.sequence_number + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-xs truncate text-gray-900">
-                            {stop.name}
+                  .map((stop: StopInfo) => {
+                    const isSelected = isStopSelected(stop);
+                    const isNextStop = selectedLocationId && vr.stops.findIndex(s => s.location_id === selectedLocationId) + 1 === stop.sequence_number;
+                    
+                    return (
+                      <div
+                        key={stop.sequence_number}
+                        className={cn(
+                          "px-4 py-2 transition-colors cursor-pointer",
+                          isSelected 
+                            ? "bg-blue-50 hover:bg-blue-100/80"
+                            : isNextStop
+                            ? "bg-green-50 hover:bg-green-100/80"
+                            : "hover:bg-gray-50/50"
+                        )}
+                        onClick={() => {
+                          if (isSelected) {
+                            onLocationSelect(null);
+                            return;
+                          }  
+                          onLocationSelect(stop.location_id);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium border",
+                            isSelected
+                              ? "bg-blue-50 text-blue-600 border-blue-200"
+                              : isNextStop
+                              ? "bg-green-50 text-green-600 border-green-200"
+                              : "bg-blue-50 text-blue-600 border-blue-100"
+                          )}>
+                            {stop.sequence_number + 1}
                           </div>
-                          <div className="text-[10px] text-gray-500">
-                            Collection: {stop.wco_amount}L
+                          <div className="flex-1 min-w-0">
+                            <div className={cn(
+                              "font-medium text-xs truncate",
+                              isSelected ? "text-blue-900" : 
+                              isNextStop ? "text-green-900" :
+                              "text-gray-900"
+                            )}>
+                              {stop.name}
+                            </div>
+                            <div className={cn(
+                              "text-[10px]",
+                              isSelected ? "text-blue-500" :
+                              isNextStop ? "text-green-500" :
+                              "text-gray-500"
+                            )}>
+                              Collection: {stop.wco_amount}L
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                 {/* Depot End */}
                 <div 
