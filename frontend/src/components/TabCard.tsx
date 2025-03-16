@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { cn } from '../utils/utils';
 
 interface Tab {
     id: string;
@@ -21,11 +22,12 @@ export default function TabCard({ tabs, activeTab, onTabChange }: TabCardProps) 
                         key={tab.id}
                         type="button"
                         onClick={() => onTabChange(tab.id)}
-                        className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+                        className={cn(
+                            'flex-1 py-2 px-4 text-sm font-medium transition-colors',
                             activeTab === tab.id
                                 ? 'bg-white text-blue-600 border-b-2 border-blue-500'
                                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                        }`}
+                        )}
                     >
                         {tab.label}
                     </button>

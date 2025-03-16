@@ -45,7 +45,7 @@ export default function ConfigForm({
     } = useConfigStore();
 
     useEffect(() => {
-        if (defaultSolver && defaultSolver !== solver) {
+        if (defaultSolver && !solver) {
             setSolver(defaultSolver);
         }
     }, [defaultSolver, solver]);
@@ -203,7 +203,7 @@ export default function ConfigForm({
                             <select
                                 value={solver}
                                 onChange={(e) => setSolver(e.target.value)}
-                                className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white/80 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow disabled:bg-gray-100 disabled:text-gray-500"
                             >
                                 {solvers.map(solver => (
                                     <option key={solver.id} value={solver.id} title={solver.description}>

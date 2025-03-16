@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { ConfigRequest } from '../types/models';
 import { downloadConfigAsJson } from '../services/api';
+import { cn } from '../utils/utils';
 
 interface ConfigActionButtonsProps {
   config: ConfigRequest;
@@ -73,13 +74,14 @@ export default function ConfigActionButtons({
         type="button"
         onClick={onGenerateRoutes}
         disabled={isGenerating || !canGenerate}
-        className={`py-1.5 px-4 text-sm rounded transition-colors ${
+        className={cn(
+          'py-1.5 px-4 text-sm rounded transition-colors',
           isGenerating 
             ? 'bg-gray-400 text-white cursor-not-allowed' 
             : !canGenerate
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-blue-500 text-white hover:bg-blue-600'
-        }`}
+        )}
       >
         {isGenerating ? 'Calculating...' : 'Generate Routes'}
       </button>

@@ -1,5 +1,6 @@
 import { RouteResponse } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
+import { cn } from '../utils/utils';
 
 interface FilterControlsProps {
     routes: RouteResponse[];
@@ -117,11 +118,12 @@ export default function FilterControls({ routes }: FilterControlsProps) {
                                 <button
                                     key={vr.vehicle_id}
                                     onClick={() => toggleVehicle(vr.vehicle_id)}
-                                    className={`px-2 py-1 text-xs rounded border ${
+                                    className={cn(
+                                        'px-2 py-1 text-xs rounded border',
                                         activeVehicles.has(vr.vehicle_id)
                                             ? 'border-gray-600 bg-gray-100'
                                             : 'border-gray-300 bg-white'
-                                    }`}
+                                    )}
                                     style={{
                                         borderLeftWidth: '4px',
                                         borderLeftColor: vehicleColors[vr.vehicle_id]
@@ -149,11 +151,12 @@ export default function FilterControls({ routes }: FilterControlsProps) {
                                 <div key={route.schedule_id} className="space-y-2">
                                     <button
                                         onClick={() => toggleAllTrips(route)}
-                                        className={`text-xs px-2 py-1 rounded w-full ${
+                                        className={cn(
+                                            'text-xs px-2 py-1 rounded w-full',
                                             allSelected
                                                 ? 'bg-blue-500 text-white hover:bg-blue-600'
                                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
+                                        )}
                                     >
                                         {allSelected ? 'Clear All Trips' : 'Select All Trips'}
                                     </button>
@@ -162,11 +165,12 @@ export default function FilterControls({ routes }: FilterControlsProps) {
                                             <button
                                                 key={tripNum}
                                                 onClick={() => toggleTrip(tripNum)}
-                                                className={`px-2 py-1 text-xs rounded ${
+                                                className={cn(
+                                                    'px-2 py-1 text-xs rounded',
                                                     activeTrips.has(tripNum)
                                                         ? 'bg-blue-500 text-white'
                                                         : 'border border-gray-300 bg-white hover:bg-gray-50'
-                                                }`}
+                                                )}
                                             >
                                                 Trip #{tripNum}
                                             </button>

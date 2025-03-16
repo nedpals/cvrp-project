@@ -95,6 +95,17 @@ function App() {
     mapRef.current?.fitBounds(stops.map(stop => stop.coordinates), padding);
   };
 
+  useEffect(() => {
+    if (routes && activeDay) {
+      const currentRoute = routes.find(r => r.collection_day === activeDay);
+      if (currentRoute) {
+        const allStops = currentRoute.vehicle_routes.flatMap(vr => vr.stops);
+        const padding = { x: 160, y: 40 };
+        mapRef.current?.fitBounds(allStops.map(stop => stop.coordinates), padding);
+      }
+    }
+  }, [activeDay, routes]);
+
   return (
     <div className="h-screen w-screen relative">
       {/* Full-screen map */}

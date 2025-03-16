@@ -1,6 +1,7 @@
 import { RouteResponse, StopInfo } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
 import { useState } from 'react';
+import { cn } from '../utils/utils';
 
 interface ResultsCardProps {
   routes: RouteResponse[];
@@ -31,7 +32,17 @@ export default function ResultsCard({
     setActiveDay
   } = useFilterStore();
 
-  const [expandedTrips, setExpandedTrips] = useState<Set<number>>(new Set());
+  const [expandedTrips, setExpandedTrips] = useState<Set<number>>(() => {
+    const allTrips = new Set<number>();
+    routes?.forEach(route => {
+      route.vehicle_routes?.forEach(vr => {
+        vr.stops?.forEach(stop => {
+          allTrips.add(stop.trip_number);
+        });
+      });
+    });
+    return allTrips;
+  });
 
   if (!routes || routes.length === 0 || !activeDay) return null;
 
@@ -109,12 +120,17 @@ export default function ResultsCard({
           {routes.map(route => (
             <button
               key={route.collection_day}
-              onClick={() => setActiveDay(route.collection_day)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              onClick={() => {
+                setActiveDay(route.collection_day);
+                const allStops = route.vehicle_routes.flatMap(vr => vr.stops);
+                onZoomToTrip(allStops);
+              }}
+              className={cn(
+                'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
                 activeDay === route.collection_day
                   ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-2'
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-sm'
-              }`}
+              )}
             >
               Day {route.collection_day}
             </button>
@@ -154,12 +170,13 @@ export default function ResultsCard({
       <div className="flex-1 overflow-y-auto bg-gray-50/50 p-2 space-y-2">
         {currentRoute.vehicle_routes.map((vr) => (
           <div key={vr.vehicle_id} 
-               className={`rounded-lg bg-white shadow-sm transition-all ${
+               className={cn(
+                 'rounded-lg bg-white shadow-sm transition-all',
                  activeVehicles.has(vr.vehicle_id) ? 'ring-2 ring-blue-100' : ''
-               }`}>
+               )}>
             <button
               onClick={() => toggleVehicle(vr.vehicle_id)}
-              className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-gray-50"
+              className="w-full text-left py-2 rounded-lg transition-colors hover:bg-gray-50"
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -175,8 +192,8 @@ export default function ResultsCard({
             </button>
 
             {activeVehicles.has(vr.vehicle_id) && (
-              <div className="px-3 py-2 border-t border-gray-100">
-                <div className="flex justify-between items-center py-1.5 mb-2">
+              <div className="py-2 border-t border-gray-100">
+                <div className="flex justify-between items-center py-1.5 px-4 mb-2">
                   <span className="text-xs font-medium text-gray-700">Trip Routes</span>
                   <button
                     onClick={() => toggleAllTrips(currentRoute)}
@@ -185,16 +202,16 @@ export default function ResultsCard({
                     Toggle All
                   </button>
                 </div>
-                <div className="space-y-1">
+                <div className="divide-y divide-gray-100">
                   {Array.from(getTripStops(vr.stops)).map(([tripNumber, stops]) => (
-                    <div key={tripNumber} className="rounded-lg border border-gray-100">
+                    <div key={tripNumber}>
                       <div className="flex items-center justify-between p-2">
                         <button
                           onClick={() => {
                             toggleTripExpansion(+tripNumber);
                             onZoomToTrip(stops);
                           }}
-                          className="flex items-center gap-2 flex-1"
+                          className="flex items-center gap-2 flex-1 px-2"
                         >
                           <svg
                             className={`w-3.5 h-3.5 text-gray-500 transition-transform ${
@@ -211,7 +228,7 @@ export default function ResultsCard({
                             <span className="text-[10px] text-gray-500">{stops.length} stops</span>
                           </div>
                         </button>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 pr-2">
                           <input
                             type="checkbox"
                             checked={activeTrips.has(+tripNumber)}
@@ -229,7 +246,7 @@ export default function ResultsCard({
                             return (
                               <div
                                 key={stop.sequence_number}
-                                className={`p-2 transition-colors ${
+                                className={`px-4 py-2 transition-colors ${
                                   isActive 
                                     ? 'hover:bg-gray-50/50 cursor-pointer' 
                                     : 'opacity-50 cursor-not-allowed'
@@ -242,7 +259,7 @@ export default function ResultsCard({
                                       ? 'bg-blue-50 text-blue-600 border border-blue-100'
                                       : 'bg-gray-50 text-gray-400 border border-gray-200'
                                   }`}>
-                                    {stop.sequence_number}
+                                    {stop.sequence_number + 1}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className={`font-medium text-xs truncate ${
