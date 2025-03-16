@@ -37,7 +37,7 @@ const exportToExcel = (route: RouteResponse) => {
   const summaryData = [
     ['Total Stops', route.total_stops],
     ['Total Distance (km)', route.total_distance],
-    ['Total Travel Time', formatDuration(route.total_travel_time)],
+    ['Total Travel Time', formatDuration(route.total_travel_time + route.total_collection_time)],
     ['Total Vehicles', route.total_vehicles],
     ['Total WCO Collected (L)', totalWco.toFixed(1)],
   ];
@@ -265,7 +265,7 @@ export default function ResultsCard({
             <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
               <div className="flex flex-col items-center">
                 <span className="text-gray-600 text-xs mb-0.5">Duration</span>
-                <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_travel_time)}</span>
+                <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_travel_time + currentRoute.total_collection_time)}</span>
               </div>
             </div>
           </div>
