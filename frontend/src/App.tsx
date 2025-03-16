@@ -20,36 +20,34 @@ function App() {
 
   const {
     activeVehicles,
-    activeTrips,
-    activeDay,  // Changed from activeSchedule
+    activeTrip,
     initializeFilters
   } = useFilterStore();
 
   // Initialize filters when routes change
   useEffect(() => {
-    if (routes) {
-      initializeFilters(routes);
+    if (routes?.[0]) {
+      initializeFilters(routes[0]);
     }
   }, [routes]);
 
   const activeVehicleRoutes = useMemo(() => {
-    const activeRoute = routes?.find(r => r.collection_day === activeDay);
-    if (!activeRoute) return [];
-    return activeRoute.vehicle_routes;
-  }, [routes, activeDay]);
+    if (!routes?.[0]) return [];
+    return routes[0].vehicle_routes;
+  }, [routes]);
 
-  // Filter locations based on active trips
+  // Filter locations based on active trip
   const activeLocations = useMemo(() => {
     return locations?.filter(location => {
       if (!activeVehicleRoutes) return true;
       return activeVehicleRoutes.some(vr =>
         (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
         vr.stops.some(stop =>
-          (activeTrips.size === 0 || activeTrips.has(stop.trip_number)) &&
+          (activeTrip === null || activeTrip === stop.trip_number) &&
           stop.location_id === location.id)
       );
     }) ?? [];
-  }, [locations, activeVehicles, activeTrips, activeVehicleRoutes]);
+  }, [locations, activeVehicles, activeTrip, activeVehicleRoutes]);
 
   const handleConfigSubmit = async (config: ConfigRequest) => {
     if (!locations || locations.length === 0) {
@@ -86,15 +84,15 @@ function App() {
   };
 
   useEffect(() => {
-    if (routes && activeDay) {
-      const currentRoute = routes.find(r => r.collection_day === activeDay);
+    if (routes) {
+      const currentRoute = routes[0];
       if (currentRoute) {
         const allStops = currentRoute.vehicle_routes.flatMap(vr => vr.stops);
         const padding = { x: 160, y: 40 };
         mapRef.current?.fitBounds(allStops.map(stop => stop.coordinates), padding);
       }
     }
-  }, [activeDay, routes]);
+  }, [routes]);
 
   const mapData = useMemo((): MapData => {
     const markers = activeLocations.map(loc => {
@@ -118,13 +116,13 @@ function App() {
     const paths = routes?.flatMap((route) =>
       route.vehicle_routes.flatMap<MapPath>((vr, vrIndex) => ({
         id: `${route.schedule_id}-${vr.vehicle_id}`,
-        points: vr.trip_paths[Object.values(activeTrips)[0] ?? Object.keys(vr.trip_paths)[0]].flatMap(stop => stop.path),
+        points: activeTrip ? vr.trip_paths[activeTrip]?.flatMap(stop => stop.path) ?? [] : [],
         color: getVehicleColor(vrIndex)
       }))
     ) || [];
 
     return { markers, paths };
-  }, [activeLocations, activeTrips, routes, depotLat, depotLng]);
+  }, [activeLocations, activeTrip, routes, depotLat, depotLng]);
 
   return (
     <div className="h-screen w-screen relative overflow-hidden pointer-events-none">

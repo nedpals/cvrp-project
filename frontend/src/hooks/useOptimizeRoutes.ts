@@ -12,6 +12,7 @@ export function useOptimizeRoutes() {
         ...vehicle,
         depot_location: config.depot_location
       })),
+      schedules: [config.schedules[0]] // Only use the first schedule
     }
 
     try {

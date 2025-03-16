@@ -3,23 +3,28 @@ import { RouteResponse } from '../types/models';
 
 interface FilterState {
   activeVehicles: Set<string>;
-  activeTrips: Set<number>;
-  activeDay: number | null;
-  initializeFilters: (routes: RouteResponse[]) => void;
-  setActiveDay: (day: number | null) => void;
+  activeTrip: number | null;
   setActiveVehicles: (vehicles: Set<string>) => void;
-  setActiveTrips: (trips: Set<number>) => void;
+  setActiveTrip: (trip: number | null) => void;
+  initializeFilters: (route: RouteResponse) => void;
 }
 
 export const useFilterStore = create<FilterState>((set) => ({
   activeVehicles: new Set(),
-  activeTrips: new Set(),
-  activeDay: null,
-  initializeFilters: (routes) => {
-    const days = routes.map(r => r.collection_day);
-    set({ activeDay: days[0] || null });
-  },
-  setActiveDay: (day) => set({ activeDay: day }),
+  activeTrip: null,
   setActiveVehicles: (vehicles) => set({ activeVehicles: vehicles }),
-  setActiveTrips: (trips) => set({ activeTrips: trips }),
+  setActiveTrip: (trip) => set({ activeTrip: trip }),
+  initializeFilters: (route) => {
+    const vehicles = new Set<string>();
+    
+    // If there's only one vehicle, always add it
+    if (route.vehicle_routes.length === 1) {
+      vehicles.add(route.vehicle_routes[0].vehicle_id);
+    }
+    
+    set({ 
+      activeVehicles: vehicles, 
+      activeTrip: route.vehicle_routes[0]?.stops[0]?.trip_number ?? null 
+    });
+  },
 }));

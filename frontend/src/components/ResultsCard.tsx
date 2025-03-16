@@ -1,6 +1,6 @@
 import { RouteResponse, StopInfo } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
-import { useState } from 'react';
+import { useConfigStore } from '../stores/configStore';
 import { cn } from '../utils/utils';
 
 interface ResultsCardProps {
@@ -20,33 +20,19 @@ const formatDuration = (seconds: number) => {
 
 export default function ResultsCard({ 
   routes, 
-  onZoomToLocation,
-  onZoomToTrip
+  onZoomToLocation
 }: ResultsCardProps) {
   const {
     activeVehicles,
-    activeTrips,
-    activeDay,
+    activeTrip,
     setActiveVehicles,
-    setActiveTrips,
-    setActiveDay
+    setActiveTrip,
   } = useFilterStore();
+  const { depotLat, depotLng } = useConfigStore();
 
-  const [expandedTrips, setExpandedTrips] = useState<Set<number>>(() => {
-    const allTrips = new Set<number>();
-    routes?.forEach(route => {
-      route.vehicle_routes?.forEach(vr => {
-        vr.stops?.forEach(stop => {
-          allTrips.add(stop.trip_number);
-        });
-      });
-    });
-    return allTrips;
-  });
+  if (!routes || routes.length === 0) return null;
 
-  if (!routes || routes.length === 0 || !activeDay) return null;
-
-  const currentRoute = routes.find(r => r.collection_day === activeDay);
+  const currentRoute = routes[0];
   if (!currentRoute) return null;
 
   const toggleVehicle = (vehicleId: string) => {
@@ -59,80 +45,33 @@ export default function ResultsCard({
     setActiveVehicles(newVehicles);
   };
 
-  const toggleTrip = (tripNumber: number) => {
-    const newTrips = new Set(activeTrips);
-    if (newTrips.has(tripNumber)) {
-      newTrips.delete(tripNumber);
-    } else {
-      newTrips.add(tripNumber);
-    }
-    setActiveTrips(newTrips);
-  };
-
-  const toggleAllTrips = (route: RouteResponse) => {
+  const getAllTrips = () => {
     const trips = new Set<number>();
-    if (activeTrips.size === 0) {
-      // Add all trips
-      route.vehicle_routes.forEach(vr => {
-        vr.stops.forEach(stop => {
-          trips.add(stop.trip_number);
-        });
+    currentRoute?.vehicle_routes.forEach(vr => {
+      vr.stops.forEach(stop => {
+        trips.add(stop.trip_number);
       });
-    }
-    setActiveTrips(trips);
-  };
-
-  const toggleTripExpansion = (tripNumber: number) => {
-    const newExpanded = new Set(expandedTrips);
-    if (newExpanded.has(tripNumber)) {
-      newExpanded.delete(tripNumber);
-    } else {
-      newExpanded.add(tripNumber);
-    }
-    setExpandedTrips(newExpanded);
-  };
-
-  // Group stops by trip number
-  const getTripStops = (stops: StopInfo[]) => {
-    const tripMap = new Map();
-    stops.forEach(stop => {
-      if (!tripMap.has(stop.trip_number)) {
-        tripMap.set(stop.trip_number, []);
-      }
-      tripMap.get(stop.trip_number).push(stop);
     });
-    return tripMap;
-  };
-
-  const isStopActive = (stop: StopInfo) => {
-    return activeTrips.has(stop.trip_number) && 
-           currentRoute.vehicle_routes.some(vr => 
-             activeVehicles.has(vr.vehicle_id) && 
-             vr.stops.some(s => s.trip_number === stop.trip_number)
-           );
+    return Array.from(trips).sort((a, b) => a - b);
   };
 
   return (
     <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
-      {/* Day Selection */}
+      {/* Trip Filter */}
       <div className="px-3 py-2.5 border-b border-gray-50/80 bg-white sticky top-0 z-10 shadow-sm">
-        <div className="flex gap-1.5">
-          {routes.map(route => (
+        <div className="flex gap-1.5 flex-wrap">
+          {getAllTrips().map(tripNumber => (
             <button
-              key={route.collection_day}
-              onClick={() => {
-                setActiveDay(route.collection_day);
-                const allStops = route.vehicle_routes.flatMap(vr => vr.stops);
-                onZoomToTrip(allStops);
-              }}
+              key={tripNumber}
+              onClick={() => setActiveTrip(tripNumber === activeTrip ? null : tripNumber)}
               className={cn(
-                'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                activeDay === route.collection_day
+                'px-2.5 py-1 text-xs font-medium rounded-lg transition-all',
+                activeTrip === tripNumber
                   ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-2'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-sm'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               )}
             >
-              Day {route.collection_day}
+              Trip {tripNumber}
             </button>
           ))}
         </div>
@@ -142,7 +81,6 @@ export default function ResultsCard({
       <div className="px-3 py-2.5 border-b border-gray-50/80 bg-gray-50/80">
         <div className="flex items-center justify-between mb-2.5">
           <h2 className="text-sm font-medium text-gray-900">Route Summary</h2>
-          <span className="text-xs text-gray-500">Day {currentRoute.collection_day}</span>
         </div>
         <div className="grid grid-cols-3 gap-2 text-xs">
           <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-100">
@@ -172,11 +110,12 @@ export default function ResultsCard({
           <div key={vr.vehicle_id} 
                className={cn(
                  'rounded-lg bg-white shadow-sm transition-all',
-                 activeVehicles.has(vr.vehicle_id) ? 'ring-2 ring-blue-100' : ''
+                 activeVehicles.has(vr.vehicle_id) ? 'not-disabled:ring-2 ring-blue-100' : ''
                )}>
             <button
+              disabled={currentRoute.total_vehicles === 1}
               onClick={() => toggleVehicle(vr.vehicle_id)}
-              className="w-full text-left py-2 rounded-lg transition-colors hover:bg-gray-50"
+              className="w-full text-left py-2 px-3 rounded-lg transition-colors not-disabled:hover:bg-gray-50"
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -191,96 +130,71 @@ export default function ResultsCard({
               </div>
             </button>
 
-            {activeVehicles.has(vr.vehicle_id) && (
-              <div className="py-2 border-t border-gray-100">
-                <div className="flex justify-between items-center py-1.5 px-4 mb-2">
-                  <span className="text-xs font-medium text-gray-700">Trip Routes</span>
-                  <button
-                    onClick={() => toggleAllTrips(currentRoute)}
-                    className="text-xs px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all"
-                  >
-                    Toggle All
-                  </button>
+            {activeVehicles.has(vr.vehicle_id) && activeTrip && (
+              <div className="py-2 border-t border-gray-100 divide-y divide-gray-50">
+                {/* Depot Start */}
+                <div 
+                  className="px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100/50"
+                  onClick={() => onZoomToLocation([parseFloat(depotLat), parseFloat(depotLng)])}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                      S
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-xs truncate text-gray-900">
+                        Depot
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        Start Location
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="divide-y divide-gray-100">
-                  {Array.from(getTripStops(vr.stops)).map(([tripNumber, stops]) => (
-                    <div key={tripNumber}>
-                      <div className="flex items-center justify-between p-2">
-                        <button
-                          onClick={() => {
-                            toggleTripExpansion(+tripNumber);
-                            onZoomToTrip(stops);
-                          }}
-                          className="flex items-center gap-2 flex-1 px-2"
-                        >
-                          <svg
-                            className={`w-3.5 h-3.5 text-gray-500 transition-transform ${
-                              expandedTrips.has(+tripNumber) ? 'rotate-90' : ''
-                            }`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium">Trip #{tripNumber}</span>
-                            <span className="text-[10px] text-gray-500">{stops.length} stops</span>
+
+                {/* Regular Stops */}
+                {vr.stops
+                  .filter(stop => stop.trip_number === activeTrip)
+                  .map((stop: StopInfo) => (
+                    <div
+                      key={stop.sequence_number}
+                      className="px-4 py-2 transition-colors hover:bg-gray-50/50 cursor-pointer"
+                      onClick={() => onZoomToLocation(stop.coordinates)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                          {stop.sequence_number + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-xs truncate text-gray-900">
+                            {stop.name}
                           </div>
-                        </button>
-                        <div className="flex items-center gap-2 pr-2">
-                          <input
-                            type="checkbox"
-                            checked={activeTrips.has(+tripNumber)}
-                            onChange={() => toggleTrip(+tripNumber)}
-                            className="h-3.5 w-3.5 rounded text-blue-500 focus:ring-blue-500"
-                            onClick={(e) => e.stopPropagation()}
-                          />
+                          <div className="text-[10px] text-gray-500">
+                            Collection: {stop.wco_amount}L
+                          </div>
                         </div>
                       </div>
-                      
-                      {expandedTrips.has(+tripNumber) && (
-                        <div className="border-t border-gray-100 divide-y divide-gray-50">
-                          {stops.map((stop: StopInfo) => {
-                            const isActive = isStopActive(stop);
-                            return (
-                              <div
-                                key={stop.sequence_number}
-                                className={`px-4 py-2 transition-colors ${
-                                  isActive 
-                                    ? 'hover:bg-gray-50/50 cursor-pointer' 
-                                    : 'opacity-50 cursor-not-allowed'
-                                }`}
-                                onClick={() => isActive && onZoomToLocation(stop.coordinates)}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium ${
-                                    isActive
-                                      ? 'bg-blue-50 text-blue-600 border border-blue-100'
-                                      : 'bg-gray-50 text-gray-400 border border-gray-200'
-                                  }`}>
-                                    {stop.sequence_number + 1}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className={`font-medium text-xs truncate ${
-                                      isActive ? 'text-gray-900' : 'text-gray-400'
-                                    }`}>
-                                      {stop.name}
-                                    </div>
-                                    <div className={`text-[10px] ${
-                                      isActive ? 'text-gray-500' : 'text-gray-400'
-                                    }`}>
-                                      Collection: {stop.wco_amount}L
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
                     </div>
                   ))}
+
+                {/* Depot End */}
+                <div 
+                  className="px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100/50"
+                  onClick={() => onZoomToLocation([parseFloat(depotLat), parseFloat(depotLng)])}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                      E
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-xs truncate text-gray-900">
+                        Depot
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        End Location
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
