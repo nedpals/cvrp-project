@@ -362,7 +362,7 @@ export default function ResultsCard({
                     
                     return (
                       <div
-                        key={stop.sequence_number}
+                        key={`trip-${activeTrip}-stop-${stop.location_id}-vehicle-${vr.vehicle_id}-${idx}`}
                         className={cn(
                           "px-4 py-2 transition-colors cursor-pointer",
                           isSelected
@@ -422,6 +422,7 @@ export default function ResultsCard({
                               "text-gray-500"
                             )}>
                               Collection: {stop.wco_amount}L
+                              {` • Trip ${stop.trip_number}`}
                             </div>
                           </div>
                         </div>
