@@ -193,6 +193,7 @@ export default function AddLocationModal({
                 onAddLocation={(location) => {
                     setPreviewLocations(prev => [...prev, location]);
                 }}
+                schedules={schedules}
                 fixedSchedule={fixedSchedule}
             />
         </>

@@ -152,6 +152,16 @@ export default function ConfigForm({
         setEditingLocation(undefined);
     };
 
+    const handleAutoCreateSchedules = (frequencies: number[]) => {
+        const newSchedules = frequencies.map(frequency => ({
+            id: `schedule_${frequency}`,
+            file: `schedule_${frequency}.csv`,
+            name: `${frequency} Days`,
+            frequency
+        }));
+        setSchedules([...schedules, ...newSchedules]);
+    };
+
     return (
         <div className="h-full flex flex-col">
             {/* Route Configuration Card */}
@@ -426,7 +436,10 @@ export default function ConfigForm({
             <BulkImportWrapper
                 isOpen={isBulkImportOpen}
                 onClose={() => setIsBulkImportOpen(false)}
-                onAddLocation={onAddLocation} />
+                onAddLocation={onAddLocation}
+                schedules={schedules}
+                onAddSchedules={handleAutoCreateSchedules}
+            />
         </div>
     );
 }
