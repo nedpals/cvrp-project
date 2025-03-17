@@ -3,7 +3,7 @@ from models.location import Location, Vehicle
 from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH
 from models.location_registry import LocationRegistry
 from models.trip_collection import TripCollection
-from utils import calculate_distance
+from utils import calculate_distance, estimate_collection_time
 import numpy as np
 from clustering.geographic_clusterer import GeographicClusterer
 
@@ -183,10 +183,7 @@ class CollectionScheduler:
                         continue
                         
                     # Calculate time and load scores
-                    collection_time = min(
-                        self.MAX_STOP_TIME,
-                        self.clusterer.estimate_collection_time(location)
-                    )
+                    collection_time = estimate_collection_time(location, self.MAX_STOP_TIME)
                     current_time = vehicle_times[v_idx]
                     
                     # Get distance and travel time factors
@@ -354,7 +351,7 @@ class CollectionScheduler:
                 
                 for loc in vehicle_locs:
                     # Collection time
-                    collection_time = self.clusterer.estimate_collection_time(loc)
+                    collection_time = estimate_collection_time(loc, self.MAX_STOP_TIME)
                     
                     # Travel time
                     if prev_loc:

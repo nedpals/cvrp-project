@@ -44,14 +44,26 @@ class CVRP:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
-            
-        solver: BaseSolver = self.solver_class(
-            vehicles=self.vehicles,
-            locations=[loc for route in vehicle_assignments for loc in route],
-            constraints=self.constraints
-        )
 
-        return solver.solve()
+        # Process each vehicle's assignments independently to ensure single trip
+        optimized_assignments = []
+
+        for v_idx, locations in enumerate(vehicle_assignments):
+            if not locations:
+                optimized_assignments.append([])
+                continue
+
+            # Create solver for just this vehicle's locations
+            solver: BaseSolver = self.solver_class(
+                vehicles=[self.vehicles[v_idx]],  # Just one vehicle
+                locations=locations,
+                constraints=self.constraints
+            )
+
+            vehicle_routes = solver.solve()
+            optimized_assignments.append(vehicle_routes[0] if vehicle_routes else [])
+
+        return optimized_assignments
 
     def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True) -> Tuple[List[RouteAnalysisResult], TripCollection]:
         """Process schedules independently.
