@@ -22,7 +22,7 @@ from cvrp import CVRP
 from solvers.or_tools_solver import ORToolsSolver
 from solvers.greedy_solver import GreedySolver
 from solvers.nearest_neighbor_solver import NearestNeighborSolver
-from solvers.schedule_aware_solver import BasicSolver
+from solvers.basic_solver import BasicSolver
 
 import os
 import traceback
