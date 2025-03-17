@@ -25,6 +25,6 @@ class SolveConfig(BaseModel):
 class Config(BaseModel):
     map: MapConfig
     schedules: List[SharedScheduleEntry] = Field(default_factory=list)
-    locations: List[Location]
+    locations: List[Location] = Field(default_factory=list)
     settings: SolveConfig
 
