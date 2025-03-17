@@ -7,7 +7,10 @@ export function useSolversList() {
     data: solversData, 
     error: solversError, 
     isLoading: isSolversLoading 
-  } = useSWR<{ solvers: SolverInfo[] }>('/solvers', getSolvers);
+  } = useSWR<{ solvers: SolverInfo[] }>('/solvers', getSolvers, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
   
   return {
     solvers: solversData?.solvers || [],

@@ -74,9 +74,10 @@ export default function ScheduleLocationsTab({
                 <select
                     value={currentSchedule || ''}
                     onChange={(e) => handleScheduleToggle(e.target.value)}
-                    className="flex-1 border border-gray-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    disabled={schedules.length === 0}
+                    className="flex-1 border border-gray-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
                 >
-                    <option value="">Select Schedule</option>
+                    {schedules.length === 0 ? <option value="">Select Schedule</option> : null}
                     {schedules.map((schedule) => (
                         <option key={schedule.id} value={schedule.id}>
                             {schedule.name} ({schedule.frequency}d)

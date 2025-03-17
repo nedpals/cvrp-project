@@ -68,17 +68,19 @@ export default function ConfigForm({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit(getCurrentConfig());
-    };
 
-    const getCurrentConfig = (): ConfigRequest => {
+        if (!currentSchedule) {
+            alert('Please select a schedule first.');
+            return;
+        }
+
         const currentScheduleEntry = schedules.find(s => s.id === currentSchedule);
         const selectedSchedules = currentScheduleEntry ? [currentScheduleEntry] : [];
 
-        return {
+        onSubmit({
             ...config,
             schedules: selectedSchedules,
-        };
+        });
     };
 
     const handleConfigUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,8 +91,12 @@ export default function ConfigForm({
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const config = JSON.parse(event.target?.result as string);
+                const config = JSON.parse(event.target?.result as string) as ConfigRequest;
                 importConfig(config);
+
+                if (config.schedules.length > 0) {
+                    setCurrentSchedule(config.schedules[0].id);
+                }
                 
                 // Reset file input
                 if (fileInputRef.current) {

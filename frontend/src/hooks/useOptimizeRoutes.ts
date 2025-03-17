@@ -5,12 +5,13 @@ import { optimizeRoutes } from '../services/api';
 
 export function useOptimizeRoutes() {
   const [error, setError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [lastRequest, setLastRequest] = useState<{
     config: ConfigRequest;
     locations: Location[];
   } | null>(null);
 
-  const { data: routes, isLoading, mutate } = useSWR<RouteResponse[]>('/optimize', null, {
+  const { data: routes, mutate } = useSWR<RouteResponse[]>('/optimize', null, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     dedupingInterval: 0
@@ -18,6 +19,7 @@ export function useOptimizeRoutes() {
 
   const generateRoutes = async (config: ConfigRequest, locations: Location[]) => {
     setError(null);
+    setIsGenerating(true);
     setLastRequest({ config, locations });
 
     const finalConfig = {
@@ -40,6 +42,8 @@ export function useOptimizeRoutes() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to optimize routes';
       setError(errorMessage);
       throw error;
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -55,7 +59,7 @@ export function useOptimizeRoutes() {
 
   return {
     routes,
-    isLoading,
+    isLoading: isGenerating,
     error,
     generateRoutes,
     retry,
