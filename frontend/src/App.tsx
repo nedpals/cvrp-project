@@ -67,7 +67,6 @@ function App() {
       await generateRoutes(config, locations);
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to generate routes');
     }
   };
 
