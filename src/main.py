@@ -31,7 +31,7 @@ from solvers.nearest_neighbor_solver import NearestNeighborSolver
 import argparse
 from models.config import Config
 from models.shared_models import ScheduleEntry
-from solvers.schedule_aware_solver import ScheduleAwareSolver
+from solvers.schedule_aware_solver import BasicSolver
 from datetime import datetime
 from models.route_data import RouteAnalysisResult
 from models.trip_collection import TripCollection
@@ -57,7 +57,7 @@ class CvrpSystem:
         'ortools': ORToolsSolver,
         'greedy': GreedySolver,
         'nearest': NearestNeighborSolver,
-        'schedule': ScheduleAwareSolver
+        'schedule': BasicSolver
     }
 
     def __init__(self):
