@@ -141,7 +141,7 @@ function App() {
         id: loc.id,
         position: loc.coordinates,
         color: selectedLocationId ? 
-          (loc.id === selectedLocationId ? 'red' : 
+          (loc.id === selectedLocationId ? 'blue' : 
            isNextStop ? 'green' : 'gray') : 
           (stopInfo && vehicleIndex >= 0 ? getVehicleColor(vehicleIndex) : 'gray'),
         popup: createLocationPopup(loc, stopInfo, vehicleInfo, vehicleIndex),
@@ -153,7 +153,7 @@ function App() {
     markers.unshift({
       id: 'depot',
       position: depot_location,
-      color: 'blue',
+      color: 'purple',
       onClick: () => setSelectedLocationId(null),
       popup: routes ? createDepotPopup(routes) : <></>
     });

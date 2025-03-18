@@ -464,6 +464,8 @@ export default function ResultsCard({
                             )}>
                               Collection: {stop.wco_amount}L
                               {` • Trip ${stop.trip_number}`}
+                              {!isDepotStart && !isDepotEnd && 
+                                ` • ${formatDuration((stop.travel_time || 0) + (stop.collection_time || 0))}`}
                             </div>
                           </div>
                         </div>
