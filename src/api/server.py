@@ -18,11 +18,8 @@ from models.shared_models import (
 )
 from models.config import Config, MapConfig, SolveConfig
 from models.location_registry import LocationRegistry
+from solvers.solvers import SOLVERS
 from cvrp import CVRP
-from solvers.or_tools_solver import ORToolsSolver
-from solvers.greedy_solver import GreedySolver
-from solvers.nearest_neighbor_solver import NearestNeighborSolver
-from solvers.basic_solver import BasicSolver
 
 import os
 import traceback
@@ -47,13 +44,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Solver mapping
-SOLVERS = {
-    'ortools': ORToolsSolver,
-    'greedy': GreedySolver,
-    'nearest': NearestNeighborSolver,
-    'schedule': BasicSolver
-}
 
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, obj):

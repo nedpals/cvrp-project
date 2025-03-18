@@ -21,17 +21,13 @@ import traceback
 import pandas as pd
 import os
 from pathlib import Path
-from models.location import Location, Vehicle, RouteConstraints
-from solvers.or_tools_solver import ORToolsSolver
+from models.location import Location, Vehicle
 from visualization.route_visualizer import RouteVisualizer
 from typing import List
 import json
-from solvers.greedy_solver import GreedySolver
-from solvers.nearest_neighbor_solver import NearestNeighborSolver
 import argparse
 from models.config import Config
 from models.shared_models import ScheduleEntry
-from solvers.basic_solver import BasicSolver
 from datetime import datetime
 from models.route_data import RouteAnalysisResult
 from models.trip_collection import TripCollection
@@ -39,6 +35,7 @@ from models.location_registry import LocationRegistry
 from cvrp import CVRP
 from data.schedule_loader import ScheduleLoader
 from api.server import start_api_server
+from solvers.solvers import SOLVERS
 
 class DateTimeEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle datetime objects and custom classes"""
@@ -53,13 +50,6 @@ class DateTimeEncoder(json.JSONEncoder):
             return str(obj)  # Last resort: convert to string
 
 class CvrpSystem:
-    AVAILABLE_SOLVERS = {
-        'ortools': ORToolsSolver,
-        'greedy': GreedySolver,
-        'nearest': NearestNeighborSolver,
-        'schedule': BasicSolver
-    }
-
     def __init__(self):
         self.api_key = os.getenv('ORS_API_KEY')
         self.data_path = Path(__file__).parent.parent / 'data'
@@ -83,7 +73,7 @@ class CvrpSystem:
         parser.add_argument(
             '--solver', 
             type=str,
-            choices=list(CvrpSystem.AVAILABLE_SOLVERS.keys()),
+            choices=list(SOLVERS.keys()),
             default='schedule',
             help='Solver to use for route optimization'
         )
@@ -196,7 +186,7 @@ class CvrpSystem:
             return
 
         config = self.load_config()
-        solver_class = self.AVAILABLE_SOLVERS[args.solver]
+        solver_class = SOLVERS[args.solver]
         print(f"Using {args.solver} solver")
 
         # Update vehicle creation to include depot_location
