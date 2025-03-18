@@ -311,7 +311,9 @@ class CVRP:
                             distance_from_prev=0,
                             vehicle_capacity=vehicle.capacity,
                             sequence_number=i-1,
-                            collection_day=day
+                            collection_day=day,
+                            collection_time=0,
+                            travel_time=0
                         )
                         stops_data.append(depot_start)
                         should_add_depot_start = False
@@ -331,7 +333,9 @@ class CVRP:
                         distance_from_prev=stop.distance_from_prev,
                         vehicle_capacity=vehicle.capacity,
                         sequence_number=i,
-                        collection_day=day
+                        collection_day=day,
+                        collection_time=stop.collection_time,
+                        travel_time=stop.travel_time
                     )
                     stops_data.append(stop_info)
                     vehicle_collected += stop.amount_collected
@@ -352,7 +356,9 @@ class CVRP:
                             distance_from_prev=calculate_distance(stop.coordinates, vehicle.depot_location),
                             vehicle_capacity=vehicle.capacity,
                             sequence_number=i,
-                            collection_day=day
+                            collection_day=day,
+                            collection_time=0,
+                            travel_time=0
                         )
                         stops_data.append(depot_end)
                         should_add_depot_start = True

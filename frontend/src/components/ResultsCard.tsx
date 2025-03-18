@@ -117,9 +117,17 @@ const getTripStats = (route: RouteResponse, tripNumber: number) => {
     const tripStops = vr.stops.filter(stop => stop.trip_number === tripNumber);
     if (tripStops.length === 0) return acc;
 
+    const tripDistance = tripStops.reduce((sum, stop) => sum + (stop.distance_from_prev || 0), 0);
+    const tripDuration = tripStops.reduce((sum, stop) => {
+      // Ensure we're using 0 if the values are undefined
+      const travelTime = stop.travel_time || 0;
+      const collectionTime = stop.collection_time || 0;
+      return sum + travelTime + collectionTime;
+    }, 0);
+
     return {
-      distance: acc.distance + tripStops.reduce((sum, stop) => sum + (stop.distance_from_prev || 0), 0),
-      duration: acc.duration + tripStops.reduce((sum, stop) => sum + stop.travel_time + stop.collection_time, 0),
+      distance: acc.distance + tripDistance,
+      duration: acc.duration + tripDuration,
     };
   }, { distance: 0, duration: 0 });
 
@@ -313,40 +321,46 @@ export default function ResultsCard({
 
       {/* Trip Summary - Only show if multiple trips exist and one is selected */}
       {showTripControls && activeTrip && currentRoute && (
-        <div className="px-2 py-2.5 border-b border-gray-100 bg-gray-50">
-          {(() => {
-            const { wcoTotal, stopCount, vehicleCount, distance, duration } = getTripStats(currentRoute, activeTrip);
-            return (
-              <div className="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg border border-gray-200">
-                <div className="flex items-center gap-3 text-xs flex-wrap">
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-blue-600 font-medium">{wcoTotal.toFixed(1)}L</span>
-                    <span className="text-gray-500">collected</span>
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-gray-900 font-medium">{stopCount}</span>
-                    <span className="text-gray-500">stops</span>
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-gray-900 font-medium">{distance.toFixed(1)}km</span>
-                    <span className="text-gray-500">distance</span>
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-gray-900 font-medium">{formatDuration(duration)}</span>
-                    <span className="text-gray-500">duration</span>
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-gray-300" />
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-gray-900 font-medium">{vehicleCount}</span>
-                    <span className="text-gray-500">vehicles</span>
-                  </span>
-                </div>
+        <div className="px-3 py-2 border-b border-gray-100 bg-white">
+          <div className="flex flex-col gap-1.5">
+            <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-blue-600">Trip {activeTrip} Collection</span>
+                <span className="font-semibold text-blue-900 text-base">{getTripStats(currentRoute, activeTrip).wcoTotal.toFixed(1)}L</span>
               </div>
-            );
-          })()}
+            </div>
+            {(() => {
+              const { stopCount, vehicleCount, distance, duration } = getTripStats(currentRoute, activeTrip);
+              return (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-gray-500">Distance</span>
+                      <span className="font-medium text-gray-900 text-xs">{distance.toFixed(1)}km</span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-gray-500">Duration</span>
+                      <span className="font-medium text-gray-900 text-xs">{formatDuration(duration)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-gray-500">Stops</span>
+                      <span className="font-medium text-gray-900 text-xs">{stopCount}</span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] text-gray-500">Vehicles</span>
+                      <span className="font-medium text-gray-900 text-xs">{vehicleCount}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 

@@ -96,6 +96,8 @@ class StopInfo:
     distance_from_depot: float
     distance_from_prev: float
     vehicle_capacity: float
+    collection_time: int
+    travel_time: int
     sequence_number: int
     collection_day: int
 
