@@ -463,9 +463,10 @@ export default function ResultsCard({
                               "text-gray-500"
                             )}>
                               Collection: {stop.wco_amount}L
-                              {` • Trip ${stop.trip_number}`}
                               {!isDepotStart && !isDepotEnd && 
                                 ` • ${formatDuration((stop.travel_time || 0) + (stop.collection_time || 0))}`}
+                              {!isDepotStart && stop.distance_from_prev !== undefined && 
+                                ` • ${stop.distance_from_prev.toFixed(1)}km`}
                             </div>
                           </div>
                         </div>
