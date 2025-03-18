@@ -1,5 +1,5 @@
 import { Location, ScheduleEntry } from '../types/models';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import Map from './Map';
 import { MapData, MapRef } from '../types/map';
 import { useConfigStore } from '../stores/configStore';
@@ -23,14 +23,28 @@ export default function LocationEditorModal({
     fixedSchedule
 }: LocationEditorModalProps) {
     const { config: { settings: { depot_location } } } = useConfigStore();
-    const [formData, setFormData] = useState<Partial<Location>>(
-        location || {
-            name: '',
-            coordinates: depot_location,
-            wco_amount: 0,
-            disposal_schedule: fixedSchedule?.frequency ?? 7
+    const defaultFormData = {
+        name: '',
+        coordinates: depot_location,
+        wco_amount: 0,
+        disposal_schedule: fixedSchedule?.frequency ?? 7
+    };
+
+    const [formData, setFormData] = useState<Partial<Location>>(location || defaultFormData);
+
+    useEffect(() => {
+        // Reset form when modal opens/closes
+        if (isOpen) {
+            if (location) {
+                // Editing mode: populate with location data
+                setFormData(location);
+            } else {
+                // Adding mode: reset to default values
+                setFormData(defaultFormData);
+            }
         }
-    );
+    }, [isOpen, location, depot_location, fixedSchedule]);
+
     const mapRef = useRef<MapRef>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
