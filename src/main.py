@@ -217,7 +217,8 @@ class CvrpSystem:
             results, collection_tracker = cvrp.process(
                 schedule_entries=config.schedules,
                 locations=locations,
-                with_scheduling=not args.disable_scheduling
+                with_scheduling=not args.disable_scheduling,
+                average_speed_kph=config.settings.average_speed_kph
             )
             
             # Save results

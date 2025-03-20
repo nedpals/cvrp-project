@@ -1,6 +1,6 @@
 from typing import List, Set, Tuple, Iterable
 from models.location import Vehicle, RouteConstraints
-from models.shared_models import ScheduleEntry, Location
+from models.shared_models import ScheduleEntry, Location, AVERAGE_SPEED_KPH
 from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
 from models.route_data import RouteAnalysisResult, VehicleRouteInfo, StopInfo
@@ -65,7 +65,7 @@ class CVRP:
 
         return optimized_assignments
 
-    def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True) -> Tuple[List[RouteAnalysisResult], TripCollection]:
+    def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True, speed_kph: float = AVERAGE_SPEED_KPH) -> Tuple[List[RouteAnalysisResult], TripCollection]:
         """Process schedules independently.
         
         Each schedule is processed separately and may span multiple days if needed based on:
@@ -83,7 +83,7 @@ class CVRP:
         """
         # Initialize location registry for new schedule group
         location_registry = self._initialize_location_registry(locations)
-        collection_tracker = TripCollection()
+        collection_tracker = TripCollection(speed_kph=speed_kph)
         results: List[RouteAnalysisResult] = []
 
         # Initialize scheduler once for all schedules
@@ -91,7 +91,8 @@ class CVRP:
             locations=location_registry,
             schedules=schedule_entries,
             vehicles=self.vehicles,
-            simulation_days=30
+            simulation_days=30,
+            speed_kph=speed_kph
         )
 
         # Process each schedule independently

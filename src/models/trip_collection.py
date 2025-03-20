@@ -1,4 +1,4 @@
-from models.shared_models import CollectionData, VehicleRoute, Location
+from models.shared_models import CollectionData, VehicleRoute, Location, AVERAGE_SPEED_KPH
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, Set
 from datetime import datetime
@@ -10,6 +10,7 @@ class TripCollection:
     vehicle_collections: Dict[Tuple[int, int, int], CollectionData] = field(default_factory=dict)
     total_trips: int = 0
     total_stops: int = 0
+    speed_kph: float = AVERAGE_SPEED_KPH
     
     def register_collection(self, 
                            vehicle_id: int,
@@ -39,7 +40,8 @@ class TripCollection:
                 total_distance=0.0,
                 stops=[],
                 collection_timestamp=datetime.now(),
-                collection_time_minutes=collection_time_minutes
+                collection_time_minutes=collection_time_minutes,
+                speed_kph=self.speed_kph
             )
         
         # Check if location already visited on this day

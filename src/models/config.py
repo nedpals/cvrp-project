@@ -21,6 +21,7 @@ class SolveConfig(BaseModel):
     vehicles: List['VehicleConfig']
     depot_location: Tuple[float, float]
     constraints: 'RouteConstraints'
+    average_speed_kph: float = 30.0  # Default city speed
 
 class Config(BaseModel):
     map: MapConfig

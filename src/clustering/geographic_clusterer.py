@@ -17,11 +17,11 @@ class GeographicCluster:
 class GeographicClusterer:
     """Clusters locations based on geographic proximity, WCO capacity, and time constraints"""
     
-    def __init__(self, target_clusters: int = 5, capacity_threshold: float = 2000, max_time_per_stop: float = 7.0):
+    def __init__(self, target_clusters: int = 5, capacity_threshold: float = 2000, max_time_per_stop: float = 7.0, speed_kph: float = AVERAGE_SPEED_KPH):
         self.target_clusters = target_clusters
         self.capacity_threshold = capacity_threshold
         self.max_time_per_stop = max_time_per_stop
-        self.SPEED_KPH = AVERAGE_SPEED_KPH
+        self.speed_kph = speed_kph
         
     def estimate_collection_time(self, location: Location) -> float:
         """Estimate collection time based on WCO amount, capped at max_time_per_stop"""
@@ -122,7 +122,7 @@ class GeographicClusterer:
             
             # Add traffic-based penalty
             avg_distance_km = np.mean(distances) if distances else 0
-            travel_time = (avg_distance_km / self.SPEED_KPH) * 60  # minutes
+            travel_time = (avg_distance_km / self.speed_kph) * 60  # minutes
             traffic_penalty = travel_time / 60  # Penalize longer travel times
             
             score += capacity_penalty + time_penalty + cohesion_penalty + traffic_penalty

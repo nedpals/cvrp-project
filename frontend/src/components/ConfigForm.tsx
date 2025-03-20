@@ -151,6 +151,7 @@ export default function ConfigForm({
             id: `schedule_${frequency}`,
             file: `schedule_${frequency}.csv`,
             name: `${frequency} Days`,
+            collection_time_minutes: 15,
             frequency
         }));
         setSchedules([...schedules, ...newSchedules]);
@@ -273,6 +274,24 @@ export default function ConfigForm({
                         </button>
                         {openSections.has('vehicles') && (
                             <div className="p-3 space-y-2 bg-gray-50/50">
+                                <div className="p-2 rounded-lg bg-gray-50/80 border border-gray-100">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-gray-700">Average Speed (km/h)</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="100"
+                                            step="1"
+                                            value={config.settings.average_speed_kph}
+                                            onChange={(e) => useConfigStore.getState().updateSettings({
+                                                ...config.settings,
+                                                average_speed_kph: e.target.valueAsNumber || 30
+                                            })}
+                                            placeholder="Enter average speed"
+                                            className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                        />
+                                    </div>
+                                </div>
                                 {vehicles.map((vehicle, index) => (
                                     <div key={vehicle.id} className="flex gap-2 items-center p-2 rounded-lg bg-gray-50/80 border border-gray-100">
                                         <input

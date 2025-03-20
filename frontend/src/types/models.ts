@@ -63,6 +63,7 @@ export interface SolveConfig {
   solver: string;
   vehicles: VehicleConfig[];
   depot_location: [number, number];
+  average_speed_kph: number;
   constraints: {
     one_way_roads: [number, number][][];
   };

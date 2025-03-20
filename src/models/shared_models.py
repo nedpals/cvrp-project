@@ -128,6 +128,7 @@ class CollectionData:
     stops: List[CollectionStop]
     collection_timestamp: datetime
     collection_time_minutes: float = 15.0  # Default 15 minutes per stop
+    speed_kph: float = AVERAGE_SPEED_KPH # Average speed in Davao City
 
     def add_stop(self, location: Location, distance_from_prev: float) -> None:
         """Add a stop to the collection data"""
@@ -136,7 +137,7 @@ class CollectionData:
         
         # Use fixed collection time in seconds
         collection_time = int(self.collection_time_minutes * 60)  # Default to 15 minutes if no schedule specified
-        travel_time = int((distance_from_prev / AVERAGE_SPEED_KPH) * 3600)
+        travel_time = int((distance_from_prev / self.speed_kph) * 3600)
         
         # Create new stop
         new_stop = CollectionStop(

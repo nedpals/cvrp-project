@@ -10,14 +10,14 @@ class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
 
     def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], 
-                 vehicles: List[Vehicle], simulation_days: int = 30):
+                 vehicles: List[Vehicle], simulation_days: int = 30, speed_kph: float = AVERAGE_SPEED_KPH):
         self.locations = locations
         self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
         self.schedule_map = self._build_schedule_map(schedules)  # Store full schedule objects
         self.MAX_DAILY_TIME = 7 * 60  # Total working day in minutes
         self.min_load_ratio = 0.5
-        self.SPEED_KPH = AVERAGE_SPEED_KPH
+        self.speed_kph = speed_kph
         self.MAX_TRAVEL_TIME = 240
         
         # Calculate max simulation days needed based on schedules
@@ -140,7 +140,7 @@ class CollectionScheduler:
         collection_time = schedule.collection_time_minutes if schedule else 15.0
 
         # Update clusterer with schedule-specific collection time
-        clusterer = GeographicClusterer(max_time_per_stop=collection_time)
+        clusterer = GeographicClusterer(max_time_per_stop=collection_time, speed_kph=self.speed_kph)
 
         # First, cluster the locations geographically
         clusters = clusterer.cluster_locations(locations, pure_geographic=True)
@@ -416,4 +416,4 @@ class CollectionScheduler:
     
     def _estimate_travel_time(self, distance_km: float) -> float:
         """Estimate travel time in minutes based on average city speed"""
-        return (distance_km / self.SPEED_KPH) * 60
+        return (distance_km / self.speed_kph) * 60

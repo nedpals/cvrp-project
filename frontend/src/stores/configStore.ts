@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
-import { ConfigRequest, ScheduleEntry, Vehicle, Location, VehicleConfig } from '../types/models';
+import { ConfigRequest, ScheduleEntry, Vehicle, Location, VehicleConfig, SolveConfig } from '../types/models';
 import { downloadConfigAsJson, getDefaultConfig } from '../services/api';
 
 interface ConfigState {
@@ -31,6 +31,8 @@ interface ConfigState {
   updateLocation: (location: Location) => void;
   removeLocation: (locationId: string) => void;
   setLocations: (locations: Location[]) => void;
+
+  updateSettings: (settings: SolveConfig) => void;
 }
 
 const defaultConfig: ConfigRequest = {
@@ -46,7 +48,8 @@ const defaultConfig: ConfigRequest = {
     depot_location: [7.06427, 125.60566],
     constraints: {
       one_way_roads: []
-    }
+    },
+    average_speed_kph: 30.0
   },
   schedules: [],
   locations: []
@@ -211,5 +214,16 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     produce((state: ConfigState) => {
       state.config.locations = locations;
     })
-  )
+  ),
+
+  updateSettings: (settings: SolveConfig) =>
+    set(state => ({
+      config: {
+        ...state.config,
+        settings: {
+          ...settings,
+          average_speed_kph: settings.average_speed_kph || 30.0,  // Ensure default value
+        }
+      }
+    })),
 }));
