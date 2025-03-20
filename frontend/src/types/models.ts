@@ -161,7 +161,3 @@ export const FREQUENCY_PRESETS: FrequencyPreset[] = [
     { value: 30, label: 'Monthly (30 days)' },
     { value: -1, label: 'Custom...' }
 ];
-
-export const TRAFFIC_CONSTANTS = {
-    AVERAGE_SPEED_KPH: 30,
-} as const;
