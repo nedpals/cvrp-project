@@ -20,7 +20,8 @@ export default function ScheduleEditorModal({
     const [formData, setFormData] = useState<Partial<ScheduleEntry>>(
         schedule || {
             name: '',
-            frequency: 7
+            frequency: 7,
+            collection_time_minutes: 15.0
         }
     );
 
@@ -32,7 +33,8 @@ export default function ScheduleEditorModal({
             id: schedule?.id || `schedule_${Date.now()}`,
             file: schedule?.file || '',
             name: formData.name,
-            frequency: formData.frequency
+            frequency: formData.frequency,
+            collection_time_minutes: formData.collection_time_minutes || 15.0
         };
 
         onSave(newSchedule);
@@ -40,6 +42,14 @@ export default function ScheduleEditorModal({
     };
 
     useEffect(() => {
+        if (schedule) {
+            setFormData({
+                name: schedule.name,
+                frequency: schedule.frequency,
+                collection_time_minutes: schedule.collection_time_minutes
+            });
+        }
+
         if (!schedule && defaultFrequency) {
             setFormData({ ...formData, frequency: defaultFrequency });
         }
@@ -97,6 +107,21 @@ export default function ScheduleEditorModal({
                                 className="w-full border border-gray-200 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                 required
                                 placeholder="Enter number of days"
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium text-gray-700">Collection Time (minutes)</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="60"
+                                step="0.5"
+                                value={formData.collection_time_minutes || ''}
+                                onChange={(e) => setFormData({...formData, collection_time_minutes: parseFloat(e.target.value)})}
+                                className="w-full border border-gray-200 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                required
+                                placeholder="Enter collection time in minutes"
                             />
                         </div>
                     </div>

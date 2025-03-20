@@ -1,8 +1,7 @@
-from typing import List, Dict, Tuple, Optional, Iterable
+from typing import List, Dict, Tuple, Iterable
 from models.location import Location, Vehicle
 from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH
 from models.location_registry import LocationRegistry
-from models.trip_collection import TripCollection
 from utils import calculate_distance, estimate_collection_time
 import numpy as np
 from clustering.geographic_clusterer import GeographicClusterer
@@ -15,20 +14,18 @@ class CollectionScheduler:
         self.locations = locations
         self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
+        self.schedule_map = self._build_schedule_map(schedules)  # Store full schedule objects
         self.MAX_DAILY_TIME = 7 * 60  # Total working day in minutes
-        self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
-        self.min_load_ratio = 0.5  # Minimum vehicle load ratio to consider assignment
+        self.min_load_ratio = 0.5
         self.SPEED_KPH = AVERAGE_SPEED_KPH
-        self.MAX_TRAVEL_TIME = 240  # 4 hours max travel time
+        self.MAX_TRAVEL_TIME = 240
         
         # Calculate max simulation days needed based on schedules
         max_freq = max(self.frequency_map.values())
         self.simulation_days = min(simulation_days, max_freq)
         print(f"Optimizing collection for {self.simulation_days} days based on maximum frequency")
         
-        self.schedule_map = self._build_schedule_map()
         self.daily_visited_locations = {}
-        self.clusterer = GeographicClusterer(max_time_per_stop=self.MAX_STOP_TIME)
     
     def _build_frequency_map(self, schedules: Iterable[ScheduleEntry]) -> dict[int, int]:
         """Build mapping of schedule_type to frequency"""
@@ -37,20 +34,9 @@ class CollectionScheduler:
             for schedule in schedules
         }
     
-    def _build_schedule_map(self) -> Dict[int, List[Location]]:
-        """Create daily collection schedule map"""
-        schedule_map = {day: [] for day in range(1, self.simulation_days + 1)}
-        
-        for location in self.locations.get_all():
-            if not location.disposal_schedule:
-                continue
-                
-            freq = self.frequency_map.get(location.disposal_schedule, 7)
-            for day in range(1, self.simulation_days + 1):
-                if day % freq == 0:
-                    schedule_map[day].append(location)
-                
-        return schedule_map
+    def _build_schedule_map(self, schedules: Iterable[ScheduleEntry]) -> Dict[int, ScheduleEntry]:
+        """Build mapping of frequency to schedule entry"""
+        return {schedule.frequency: schedule for schedule in schedules}
 
     def is_collection_day(self, location: Location, day: int) -> bool:
         """Check if today is a collection day for this location"""
@@ -145,9 +131,20 @@ class CollectionScheduler:
             
         print('[optimize_vehicle_assignments] - Day:', day)
         
+        # Get schedule for collection time parameters
+        schedule = None
+        if locations:
+            freq = locations[0].disposal_schedule
+            schedule = self.schedule_map.get(freq)
+        
+        collection_time = schedule.collection_time_minutes if schedule else 15.0
+
+        # Update clusterer with schedule-specific collection time
+        clusterer = GeographicClusterer(max_time_per_stop=collection_time)
+
         # First, cluster the locations geographically
-        clusters = self.clusterer.cluster_locations(locations, pure_geographic=True)
-        self.clusterer.print_cluster_analysis(clusters)
+        clusters = clusterer.cluster_locations(locations, pure_geographic=True)
+        clusterer.print_cluster_analysis(clusters)
         
         # Initialize assignments
         assignments = [[] for _ in vehicles]
@@ -164,7 +161,7 @@ class CollectionScheduler:
                 key=lambda x: (
                     calculate_distance(x.coordinates, vehicles[0].depot_location),  # Primary sort by distance from depot
                     -x.wco_amount,  # Secondary sort by WCO amount
-                    self.clusterer.estimate_collection_time(x)  # Finally by collection time
+                    clusterer.estimate_collection_time(x)  # Finally by collection time
                 )
             )
             
@@ -183,7 +180,7 @@ class CollectionScheduler:
                         continue
                         
                     # Calculate time and load scores
-                    collection_time = estimate_collection_time(location, self.MAX_STOP_TIME)
+                    collection_time = estimate_collection_time(location, collection_time)
                     current_time = vehicle_times[v_idx]
                     
                     # Get distance and travel time factors
@@ -197,7 +194,7 @@ class CollectionScheduler:
                     travel_time = self._estimate_travel_time(distance_km)
                     total_time = current_time + collection_time + travel_time
                     
-                    if (collection_time > self.MAX_STOP_TIME or 
+                    if (collection_time > collection_time or 
                         total_time > self.MAX_DAILY_TIME):
                         continue
                         
@@ -224,7 +221,7 @@ class CollectionScheduler:
                 if best_vehicle >= 0:
                     assignments[best_vehicle].append(location)
                     vehicle_loads[best_vehicle] += location.wco_amount
-                    vehicle_times[best_vehicle] += self.clusterer.estimate_collection_time(location)
+                    vehicle_times[best_vehicle] += clusterer.estimate_collection_time(location)
                     visited_locations[location.id] = best_vehicle
                 else:
                     unassigned_locations.append(location)
@@ -242,10 +239,10 @@ class CollectionScheduler:
                 assigned = False
                 for v_idx, vehicle in enumerate(vehicles):
                     if (vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity and
-                        vehicle_times[v_idx] + self.clusterer.estimate_collection_time(location) <= self.MAX_DAILY_TIME):
+                        vehicle_times[v_idx] + clusterer.estimate_collection_time(location) <= self.MAX_DAILY_TIME):
                         assignments[v_idx].append(location)
                         vehicle_loads[v_idx] += location.wco_amount
-                        vehicle_times[v_idx] += self.clusterer.estimate_collection_time(location)
+                        vehicle_times[v_idx] += clusterer.estimate_collection_time(location)
                         visited_locations[location.id] = v_idx
                         assigned = True
                         print(f"Assigned {location.name} to Vehicle {vehicle.id}")
@@ -305,7 +302,7 @@ class CollectionScheduler:
         """Check if two schedules can have overlapping collection days"""
         return freq1 % freq2 == 0 or freq2 % freq1 == 0
 
-    def balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int) -> Dict[int, List[Location]]:
+    def balance_daily_collections(self, locations: List[Location], vehicles: List[Vehicle], original_day: int, collection_time: int = 15.0) -> Dict[int, List[Location]]:
         """Balance locations across multiple days, allowing multiple trips per day within time constraints"""
         balanced_days: Dict[int, List[Location]] = {original_day: []}
         remaining = locations.copy()
@@ -350,9 +347,6 @@ class CollectionScheduler:
                 prev_loc = None
                 
                 for loc in vehicle_locs:
-                    # Collection time
-                    collection_time = estimate_collection_time(loc, self.MAX_STOP_TIME)
-                    
                     # Travel time
                     if prev_loc:
                         distance = calculate_distance(prev_loc.coordinates, loc.coordinates)

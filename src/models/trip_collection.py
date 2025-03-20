@@ -16,7 +16,8 @@ class TripCollection:
                            day: int, 
                            trip_number: int,
                            location: Location,
-                           depot_location: tuple[int, int] | None = None) -> bool:
+                           depot_location: tuple[int, int] | None = None,
+                           collection_time_minutes: float = 15.0) -> bool:
         """
         Register a collection for a specific vehicle on a specific day and trip
         Returns True if successfully registered, False otherwise
@@ -37,7 +38,8 @@ class TripCollection:
                 total_collected=0.0,
                 total_distance=0.0,
                 stops=[],
-                collection_timestamp=datetime.now()
+                collection_timestamp=datetime.now(),
+                collection_time_minutes=collection_time_minutes
             )
         
         # Check if location already visited on this day

@@ -16,5 +16,6 @@ def calculate_distance(coord1: Tuple[float, float], coord2: Tuple[float, float])
 
 def estimate_collection_time(location, max_stop_time: float = 15.0) -> float:
     """Estimate collection time based on WCO amount, capped at max_stop_time"""
-    base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
-    return min(max_stop_time, base_time)
+    # base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
+    # return min(max_stop_time, base_time)
+    return max_stop_time

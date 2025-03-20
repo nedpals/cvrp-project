@@ -2,7 +2,7 @@ import { RouteResponse, StopInfo } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
 import { useConfigStore } from '../stores/configStore';
 import { cn } from '../utils/utils';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 
 interface ResultsCardProps {
@@ -112,30 +112,30 @@ const getTripStats = (route: RouteResponse, tripNumber: number) => {
     route.vehicle_routes.find(vr => vr.stops.includes(stop))?.vehicle_id
   )).size;
 
-  // Calculate total distance and duration for this trip
+  // Calculate total distance and times for this trip
   const tripStats = route.vehicle_routes.reduce((acc, vr) => {
     const tripStops = vr.stops.filter(stop => stop.trip_number === tripNumber);
     if (tripStops.length === 0) return acc;
 
     const tripDistance = tripStops.reduce((sum, stop) => sum + (stop.distance_from_prev || 0), 0);
-    const tripDuration = tripStops.reduce((sum, stop) => {
-      // Ensure we're using 0 if the values are undefined
-      const travelTime = stop.travel_time || 0;
-      const collectionTime = stop.collection_time || 0;
-      return sum + travelTime + collectionTime;
-    }, 0);
+    const travelTime = tripStops.reduce((sum, stop) => sum + (stop.travel_time || 0), 0);
+    const collectionTime = tripStops.reduce((sum, stop) => sum + (stop.collection_time || 0), 0);
 
     return {
       distance: acc.distance + tripDistance,
-      duration: acc.duration + tripDuration,
+      travelTime: acc.travelTime + travelTime,
+      collectionTime: acc.collectionTime + collectionTime,
+      duration: acc.duration + travelTime + collectionTime,
     };
-  }, { distance: 0, duration: 0 });
+  }, { distance: 0, travelTime: 0, collectionTime: 0, duration: 0 });
 
   return { 
     wcoTotal, 
     stopCount, 
     vehicleCount,
     distance: tripStats.distance,
+    travelTime: tripStats.travelTime,
+    collectionTime: tripStats.collectionTime,
     duration: tripStats.duration
   };
 };
@@ -150,6 +150,7 @@ export default function ResultsCard({
   selectedLocationId,
   onLocationSelect
 }: ResultsCardProps) {
+  const [activeTab, setActiveTab] = useState<'stops' | 'stats'>('stops');
   const {
     activeVehicles,
     activeTrip,
@@ -274,7 +275,7 @@ export default function ResultsCard({
               <span className="font-semibold text-blue-900 text-2xl tracking-tight">{totalWco.toFixed(1)}L</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
               <div className="flex flex-col items-center">
                 <span className="text-gray-600 text-xs mb-0.5">Stops</span>
@@ -287,10 +288,24 @@ export default function ResultsCard({
                 <span className="font-medium text-gray-900">{currentRoute.total_distance.toFixed(1)}km</span>
               </div>
             </div>
-            <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-              <div className="flex flex-col items-center">
-                <span className="text-gray-600 text-xs mb-0.5">Duration</span>
-                <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_travel_time + currentRoute.total_collection_time)}</span>
+            <div className="col-span-2 grid grid-cols-3 gap-2">
+              <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                <div className="flex flex-col items-center">
+                  <span className="text-gray-600 text-xs mb-0.5">Total Time</span>
+                  <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_travel_time + currentRoute.total_collection_time)}</span>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                <div className="flex flex-col items-center">
+                  <span className="text-gray-600 text-xs mb-0.5">Travel</span>
+                  <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_travel_time)}</span>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                <div className="flex flex-col items-center">
+                  <span className="text-gray-600 text-xs mb-0.5">Collection</span>
+                  <span className="font-medium text-gray-900">{formatDuration(currentRoute.total_collection_time)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -319,165 +334,227 @@ export default function ResultsCard({
         </div>
       )}
 
-      {/* Trip Summary - Only show if multiple trips exist and one is selected */}
-      {showTripControls && activeTrip && currentRoute && (
-        <div className="px-3 py-2 border-b border-gray-100 bg-white">
-          <div className="flex flex-col gap-1.5">
-            <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-blue-600">Trip {activeTrip} Collection</span>
-                <span className="font-semibold text-blue-900 text-base">{getTripStats(currentRoute, activeTrip).wcoTotal.toFixed(1)}L</span>
-              </div>
-            </div>
-            {(() => {
-              const { stopCount, vehicleCount, distance, duration } = getTripStats(currentRoute, activeTrip);
-              return (
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-gray-500">Distance</span>
-                      <span className="font-medium text-gray-900 text-xs">{distance.toFixed(1)}km</span>
-                    </div>
+      {/* Trip Content */}
+      {activeTrip && currentRoute && (
+        <>
+          {showTripControls ? (
+            <div className="border-b border-gray-100 bg-white">
+              {/* Trip Header */}
+              <div className="px-3 pt-2">
+                <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-blue-600">Trip {activeTrip} Collection</span>
+                    <span className="font-semibold text-blue-900 text-base">
+                      {getTripStats(currentRoute, activeTrip).wcoTotal.toFixed(1)}L
+                    </span>
                   </div>
-                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-gray-500">Duration</span>
-                      <span className="font-medium text-gray-900 text-xs">{formatDuration(duration)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-gray-500">Stops</span>
-                      <span className="font-medium text-gray-900 text-xs">{stopCount}</span>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] text-gray-500">Vehicles</span>
-                      <span className="font-medium text-gray-900 text-xs">{vehicleCount}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* Vehicle Routes */}
-      <div className="flex-1 overflow-y-auto bg-gray-50/50 p-2 space-y-2">
-        {currentRoute.vehicle_routes.map((vr) => (
-          <div key={vr.vehicle_id} 
-               className={cn(
-                 'rounded-lg bg-white shadow-sm transition-all',
-                 activeVehicles.has(vr.vehicle_id) ? 'not-disabled:ring-2 ring-blue-100' : ''
-               )}>
-            <button
-              disabled={currentRoute.total_vehicles === 1}
-              onClick={() => toggleVehicle(vr.vehicle_id)}
-              className="w-full text-left py-2 px-3 rounded-lg transition-colors not-disabled:hover:bg-gray-50"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${activeVehicles.has(vr.vehicle_id) ? 'bg-blue-500' : 'bg-gray-300'}`} />
-                  <span className="font-medium text-gray-900">Vehicle {vr.vehicle_id}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                    {vr.efficiency.toFixed(1)}% efficient
-                  </span>
                 </div>
               </div>
-            </button>
 
-            {activeVehicles.has(vr.vehicle_id) && activeTrip && (
-              <div className="py-2 border-t border-gray-100 divide-y divide-gray-50">
-                {vr.stops
-                  .filter(stop => stop.trip_number === activeTrip)
-                  .map((stop: StopInfo, idx, stops) => {
-                    const isSelected = isStopSelected(stop);
-                    const isDepotStart = stop.location_id.startsWith('depot_start_');
-                    const isDepotEnd = stop.location_id.startsWith('depot_end_');
-                    const isNextStop = !isDepotStart && selectedLocationId && 
-                        idx == stops.findIndex(s => s.location_id === selectedLocationId) + 1;
-                    
-                    return (
-                      <div
-                        key={`trip-${activeTrip}-stop-${stop.location_id}-vehicle-${vr.vehicle_id}-${idx}`}
-                        className={cn(
-                          "px-4 py-2 transition-colors cursor-pointer",
-                          isSelected
-                            ? isDepotStart
-                              ? "bg-purple-50 text-purple-600 border-purple-600/20"
-                              : "bg-blue-50 text-blue-600 border-blue-600/20"
-                            : isNextStop
-                              ? isDepotEnd
-                                ? "bg-orange-50 text-orange-600 border-orange-600/20" 
-                                : "bg-green-50 text-green-600 border-green-600/20"
-                              : "bg-gray-50 text-gray-600 border-gray-50/50"
-                        )}
-                        onClick={() => {
-                          if (isSelected) {
-                            onLocationSelect(null);
-                            return;
-                          }  
-                          onLocationSelect(stop.location_id);
-                        }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-5 h-5 rounded-lg flex items-center justify-center text-xs font-medium border",
-                            isDepotStart
-                              ? "bg-purple-50 text-purple-600 border-purple-600"
-                              : isDepotEnd
-                                ? "bg-orange-50 text-orange-600 border-orange-600"
-                                : isSelected
-                                  ? "bg-blue-50 text-blue-600 border-blue-600"
-                                  : isNextStop
-                                    ? "bg-green-50 text-green-600 border-green-600"
-                                    : "bg-blue-50 text-blue-600 border-blue-600"
-                          )}>
-                            {isDepotStart ? 'S' : 
-                             isDepotEnd ? 'E' : 
-                             stop.sequence_number + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className={cn(
-                              "font-medium text-xs truncate",
-                              isDepotStart ? "text-purple-900" :
-                              isDepotEnd ? "text-orange-900" :
-                              isSelected ? "text-blue-900" : 
-                              isNextStop ? "text-green-900" :
-                              "text-gray-900"
-                            )}>
-                              {isDepotStart ? 'Depot (Start)' :
-                               isDepotEnd ? 'Depot (End)' :
-                               stop.name}
-                            </div>
-                            <div className={cn(
-                              "text-[10px]",
-                              isDepotStart ? "text-purple-500" :
-                              isDepotEnd ? "text-orange-500" :
-                              isSelected ? "text-blue-500" :
-                              isNextStop ? "text-green-500" :
-                              "text-gray-500"
-                            )}>
-                              Collection: {stop.wco_amount}L
-                              {!isDepotStart && !isDepotEnd && 
-                                ` • ${formatDuration((stop.travel_time || 0) + (stop.collection_time || 0))}`}
-                              {!isDepotStart && stop.distance_from_prev !== undefined && 
-                                ` • ${stop.distance_from_prev.toFixed(1)}km`}
-                            </div>
-                          </div>
+              {/* Tab Navigation */}
+              <div className="flex gap-2 px-3 mt-2">
+                <button
+                  onClick={() => setActiveTab('stops')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                    activeTab === 'stops'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+                  )}
+                >
+                  Stops
+                </button>
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                    activeTab === 'stats'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
+                  )}
+                >
+                  Statistics
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="px-3 py-2">
+                {activeTab === 'stats' && (() => {
+                  const stats = getTripStats(currentRoute, activeTrip);
+                  return (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Distance</span>
+                          <span className="font-medium text-gray-900">{stats.distance.toFixed(1)}km</span>
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Duration</span>
+                          <span className="font-medium text-gray-900">{formatDuration(stats.duration)}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Travel Time</span>
+                          <span className="font-medium text-gray-900">{formatDuration(stats.travelTime)}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Collection Time</span>
+                          <span className="font-medium text-gray-900">{formatDuration(stats.collectionTime)}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Stops</span>
+                          <span className="font-medium text-gray-900">{stats.stopCount}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 text-xs">Vehicles</span>
+                          <span className="font-medium text-gray-900">{stats.vehicleCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ) : null}
+
+          {/* Vehicle Routes - Show if single trip or if stops tab is active */}
+          {(!showTripControls || activeTab === 'stops') && (
+            <div className="flex-1 overflow-y-auto bg-gray-50/50 p-2 space-y-2">
+              {currentRoute.vehicle_routes.map((vr) => (
+                <div key={vr.vehicle_id} 
+                     className={cn(
+                       'rounded-lg bg-white shadow-sm transition-all',
+                       activeVehicles.has(vr.vehicle_id) ? 'not-disabled:ring-2 ring-blue-100' : ''
+                     )}>
+                  <button
+                    disabled={currentRoute.total_vehicles === 1}
+                    onClick={() => toggleVehicle(vr.vehicle_id)}
+                    className="w-full text-left py-2 px-3 rounded-lg transition-colors not-disabled:hover:bg-gray-50"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${activeVehicles.has(vr.vehicle_id) ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                        <span className="font-medium text-gray-900">Vehicle {vr.vehicle_id}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                          {vr.efficiency.toFixed(1)}% efficient
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {activeVehicles.has(vr.vehicle_id) && activeTrip && (
+                    <div className="py-2 border-t border-gray-100 divide-y divide-gray-50">
+                      {vr.stops
+                        .filter(stop => stop.trip_number === activeTrip)
+                        .map((stop: StopInfo, idx, stops) => {
+                          const isSelected = isStopSelected(stop);
+                          const isDepotStart = stop.location_id.startsWith('depot_start_');
+                          const isDepotEnd = stop.location_id.startsWith('depot_end_');
+                          const isNextStop = !isDepotStart && selectedLocationId && 
+                              idx == stops.findIndex(s => s.location_id === selectedLocationId) + 1;
+                          
+                          return (
+                            <div
+                              key={`trip-${activeTrip}-stop-${stop.location_id}-vehicle-${vr.vehicle_id}-${idx}`}
+                              className={cn(
+                                "px-3 py-2 transition-colors cursor-pointer",
+                                isSelected
+                                  ? isDepotStart
+                                    ? "bg-purple-50 text-purple-600 border-purple-600/20"
+                                    : "bg-blue-50 text-blue-600 border-blue-600/20"
+                                  : isNextStop
+                                    ? isDepotEnd
+                                      ? "bg-purple-50 text-purple-600 border-purple-600/20"
+                                      : "bg-green-50 text-green-600 border-green-600/20"
+                                    : "bg-gray-50 text-gray-600 border-gray-50/50"
+                              )}
+                              onClick={() => {
+                                if (isSelected) {
+                                  onLocationSelect(null);
+                                  return;
+                                }  
+                                onLocationSelect(stop.location_id);
+                              }}
+                            >
+                              <div className="flex gap-2">
+                                <div className="w-8 flex flex-col items-center gap-1">
+                                  <div className={cn(
+                                    "w-5 h-5 shrink-0 rounded-lg flex items-center justify-center text-xs font-medium border",
+                                    isDepotStart
+                                      ? "bg-purple-50 text-purple-600 border-purple-600"
+                                      : isDepotEnd
+                                        ? "bg-purple-50 text-purple-600 border-purple-600/20"
+                                        : isSelected
+                                          ? "bg-blue-50 text-blue-600 border-blue-600"
+                                          : isNextStop
+                                            ? "bg-green-50 text-green-600 border-green-600"
+                                            : "bg-blue-50 text-blue-600 border-blue-600"
+                                  )}>
+                                    {isDepotStart ? 'S' : 
+                                     isDepotEnd ? 'E' : 
+                                     idx + 1}
+                                  </div>
+                                  {!isDepotStart && stop.distance_from_prev !== undefined && (
+                                    <div className="text-[10px] text-gray-500 font-medium">
+                                      {stop.distance_from_prev.toFixed(1)}km
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className={cn(
+                                    "font-medium text-xs truncate",
+                                    isDepotStart || isDepotEnd ? "text-purple-900" :
+                                    isSelected ? "text-blue-900" : 
+                                    isNextStop ? "text-green-900" :
+                                    "text-gray-900"
+                                  )}>
+                                    {isDepotStart ? 'Depot (Start)' :
+                                     isDepotEnd ? 'Depot (End)' :
+                                     stop.name}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-xs">
+                                    {!isDepotStart && !isDepotEnd ? (
+                                      <div className={cn(
+                                        "px-1.5 py-0.5 rounded bg-white/50 border",
+                                        isSelected ? "text-blue-600 border-blue-200" :
+                                        isNextStop ? "text-green-600 border-green-200" :
+                                        "text-gray-600 border-gray-200"
+                                      )}>
+                                        {stop.wco_amount}L
+                                      </div>
+                                    ) : null}
+                                    {!isDepotStart && !isDepotEnd && (
+                                      <div className="flex items-center gap-1.5 text-gray-500">
+                                        <span>{formatDuration(stop.travel_time || 0)} travel</span>
+                                        <span>•</span>
+                                        <span>{formatDuration(stop.collection_time || 0)} collect</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

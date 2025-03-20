@@ -118,7 +118,8 @@ class CVRP:
             balanced_assignments = self.collection_scheduler.balance_daily_collections(
                 locations=schedule_locations,
                 vehicles=self.vehicles,
-                original_day=schedule.frequency
+                original_day=schedule.frequency,
+                collection_time=schedule.collection_time_minutes
             )
 
             # Process each day's assignments
@@ -169,7 +170,8 @@ class CVRP:
                                 day=day,
                                 trip_number=trip_number,
                                 location=location,
-                                depot_location=vehicle.depot_location
+                                depot_location=vehicle.depot_location,
+                                collection_time_minutes=schedule.collection_time_minutes
                             )
                             
                             if success:
@@ -275,7 +277,7 @@ class CVRP:
         
         # Generate analysis for each day
         for day in schedule_days:
-            vehicle_routes = []
+            vehicle_routes: list[VehicleRouteInfo] = []
             total_distance = 0
             total_collected = 0
             total_collection_time = 0
@@ -386,8 +388,8 @@ class CVRP:
 
             # Calculate totals across all vehicles
             total_trips = sum(route.total_trips for route in vehicle_routes)
-            total_stops = sum(len(route.stops) for route in vehicle_routes if route.stops)  # Regular stops
-            total_depot_stops = sum(2 for route in vehicle_routes if route.stops)  # 2 depot stops per used vehicle
+            total_stops = sum(route.total_stops for route in vehicle_routes)  # Regular stops
+            total_depot_stops = (2 * len(vehicle_routes)) * total_trips  # Depot start and end stops
             total_stops_with_depot = total_stops + total_depot_stops
             
             day_result = RouteAnalysisResult(

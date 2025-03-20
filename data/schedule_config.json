@@ -11,7 +11,8 @@
             "file": "test_input_4days.csv",
             "description": "Locations requiring collection every 4 days",
             "color": "red",
-            "frequency": 4
+            "frequency": 4,
+            "collection_time_minutes": 6.0
         },
         {
             "id": "weekly",
@@ -19,7 +20,8 @@
             "file": "test_input_weekly.csv",
             "description": "Locations requiring weekly collection",
             "color": "blue",
-            "frequency": 7
+            "frequency": 7,
+            "collection_time_minutes": 15.0
         },
         {
             "id": "2_weeks",
@@ -27,7 +29,8 @@
             "file": "test_input_2weeks.csv",
             "description": "Locations requiring collection every 2 weeks",
             "color": "green",
-            "frequency": 14
+            "frequency": 14,
+            "collection_time_minutes": 30.0
         }
     ],
     "settings": {

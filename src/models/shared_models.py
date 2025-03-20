@@ -45,6 +45,7 @@ class ScheduleEntry(BaseModel):
     file: str
     description: Optional[str] = None
     color: Optional[str] = None
+    collection_time_minutes: float = 15.0  # Default 15 minutes per stop
 
     def __hash__(self):
         return hash(self.id)
@@ -126,16 +127,16 @@ class CollectionData:
     total_distance: float
     stops: List[CollectionStop]
     collection_timestamp: datetime
+    collection_time_minutes: float = 15.0  # Default 15 minutes per stop
 
     def add_stop(self, location: Location, distance_from_prev: float) -> None:
         """Add a stop to the collection data"""
         # Calculate cumulative load
         current_load = sum(stop.amount_collected for stop in self.stops)
         
-        # Calculate times using clusterer's logic
-        base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
-        collection_time = int(min(15 * 60, base_time * 60))  # Convert to seconds, cap at 15 minutes
-        travel_time = int((distance_from_prev / AVERAGE_SPEED_KPH) * 3600)  # Convert to seconds
+        # Use fixed collection time in seconds
+        collection_time = int(self.collection_time_minutes * 60)  # Default to 15 minutes if no schedule specified
+        travel_time = int((distance_from_prev / AVERAGE_SPEED_KPH) * 3600)
         
         # Create new stop
         new_stop = CollectionStop(
@@ -144,7 +145,7 @@ class CollectionData:
             coordinates=location.coordinates,
             amount_collected=location.wco_amount,
             cumulative_load=current_load + location.wco_amount,
-            remaining_capacity=0.0,  # Will be set by vehicle if needed
+            remaining_capacity=0.0,
             distance_from_prev=distance_from_prev,
             trip_number=self.trip_number,
             collection_day=self.day,

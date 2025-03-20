@@ -36,6 +36,7 @@ export interface ScheduleEntry {
     file: string;
     description?: string;
     color?: string;
+    collection_time_minutes: number;
 }
 
 export interface ScheduleTemplate {
