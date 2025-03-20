@@ -91,7 +91,7 @@ async def optimize_routes(
         results, _ = cvrp.process(
             schedule_entries=config.schedules,
             locations=location_registry,
-            average_speed_kph=config.settings.average_speed_kph
+            speed_kph=config.settings.average_speed_kph
         )
         
         # Generate road paths and group by schedule
