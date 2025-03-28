@@ -16,6 +16,16 @@ interface ResultsCardProps {
   onLocationSelect: (locationId: string | null) => void;
 }
 
+function ResultsCardContainer({ children }: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
+      {children}
+    </div>
+  );
+}
+
 const formatDuration = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -248,17 +258,17 @@ export default function ResultsCard({
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 h-full">
+      <ResultsCardContainer>
         <div className="flex items-center justify-center h-full">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      </div>
+      </ResultsCardContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
+      <ResultsCardContainer>
         <div className="px-3 py-2 border-b border-gray-100 bg-white sticky top-0 z-20">
           <h1 className="font-semibold text-gray-900">Results</h1>
         </div>
@@ -276,14 +286,14 @@ export default function ResultsCard({
             </button>
           )}
         </div>
-      </div>
+      </ResultsCardContainer>
     );
   }
 
   if (routes.length === 0) return null;
 
   return (
-    <div className="bg-white/95 backdrop-blur-md shadow-lg rounded-xl h-[calc(100vh-2rem)] flex flex-col overflow-hidden text-sm border border-gray-200/50">
+    <ResultsCardContainer>
       {/* Card Header */}
       <div className="px-3 py-2 border-b border-gray-100 bg-white sticky top-0 z-20">
         <div className="flex items-center justify-between">
@@ -600,6 +610,6 @@ export default function ResultsCard({
           )}
         </>
       )}
-    </div>
+    </ResultsCardContainer>
   );
 }
