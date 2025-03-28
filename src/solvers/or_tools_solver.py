@@ -139,7 +139,6 @@ class ORToolsSolver(BaseSolver):
         demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
 
         # Add capacity dimension - the total amount that can be collected in one trip
-        total_demand = sum(int(loc.wco_amount * 10) for loc in self.locations if loc.coordinates != self.depot_location)
         vehicle_capacities = [int(v.capacity * 10) for v in self.vehicles]
 
         routing.AddDimensionWithVehicleCapacity(
@@ -157,25 +156,9 @@ class ORToolsSolver(BaseSolver):
 
         # Use guided local search with optimized parameters
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-        if num_vehicles == 1:
-            search_parameters.first_solution_strategy = (
-                routing_enums_pb2.FirstSolutionStrategy.SAVINGS
-            )
-            time_limit = min(max(10, num_locations), 60)
-        else:
-            search_parameters.first_solution_strategy = (
-                routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
-            )
-            time_limit = min(max(5, num_locations // 2), 30)
-
-        search_parameters.local_search_metaheuristic = (
-            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-        )
-        search_parameters.time_limit.seconds = time_limit
         
         # Enable parallel search
-        search_parameters.use_full_propagation = True
-        search_parameters.number_of_solutions_to_collect = 1
+        search_parameters.time_limit.seconds = 3 * 60  # 3 minutes
         search_parameters.log_search = False
 
         # Process solution with better error handling
