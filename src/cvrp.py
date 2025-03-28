@@ -8,6 +8,7 @@ from solvers.base_solver import BaseSolver
 from scheduling.collection_scheduler import CollectionScheduler
 from utils import calculate_distance
 from datetime import datetime
+from solvers.or_tools_solver import ORToolsSolver
 
 class CVRP:
     def __init__(self, vehicles: List[Vehicle], solver_class: BaseSolver, constraints: RouteConstraints | None = None, allow_multiple_trips: bool = True):
@@ -27,27 +28,26 @@ class CVRP:
             loc.distance_from_depot = calculate_distance(depot_location, loc.coordinates)
         
         return locations
-        
-    def solve_routes(self, locations: List[LocationRegistry], day: int) -> List[List[LocationRegistry]]:
-        """Use the configured solver to optimize routes for given locations"""
-        if not self.solver_class:
-            raise ValueError("No solver configured")
-            
-        solver = self.solver_class(
-            vehicles=self.vehicles,
-            locations=locations,
-            constraints=self.constraints
-        )
-        return solver.solve()
 
     def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]]) -> List[List[Location]]:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
 
+        # If instanceof solver is ORToolsSolver, then use it in parallel to all vehicles
+        if isinstance(self.solver_class, ORToolsSolver):
+            solver = self.solver_class(
+                locations=[loc for loc in locations if loc is not None],
+                vehicles=self.vehicles,
+                constraints=self.constraints
+            )
+            vehicle_routes = solver.solve()
+            return vehicle_routes
+
         # Process each vehicle's assignments independently to ensure single trip
         optimized_assignments = []
-
+        
+        # Otherwise, process each vehicle independently
         for v_idx, locations in enumerate(vehicle_assignments):
             if not locations:
                 optimized_assignments.append([])
@@ -62,8 +62,8 @@ class CVRP:
 
             vehicle_routes = solver.solve()
             optimized_assignments.append(vehicle_routes[0] if vehicle_routes else [])
-
         return optimized_assignments
+
 
     def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True, speed_kph: float = AVERAGE_SPEED_KPH) -> Tuple[List[RouteAnalysisResult], TripCollection]:
         """Process schedules independently.
