@@ -190,18 +190,16 @@ class CollectionScheduler:
                     else:
                         distance_km = calculate_distance(vehicle.depot_location, location.coordinates)
 
-                    distance_factor = 1.0 / (1 + distance_km)
                     travel_time = self._estimate_travel_time(distance_km)
                     total_time = current_time + collection_time + travel_time
                     
-                    if (collection_time > collection_time or 
-                        total_time > self.MAX_DAILY_TIME):
-                        continue
-                        
-                    if travel_time > self.MAX_TRAVEL_TIME:
+                    if total_time > self.MAX_DAILY_TIME:
+                        print(f"Vehicle {vehicle.id} reached daily time limit: {total_time:.1f} minutes > {self.MAX_DAILY_TIME} minutes")
+                        # Go to next vehicle if daily time limit is exceeded
                         continue
                     
                     # Calculate assignment score with higher weight on distance
+                    distance_factor = 1.0 / (1 + distance_km)
                     capacity_ratio = location.wco_amount / remaining_capacity
                     time_ratio = total_time / self.MAX_DAILY_TIME
                     traffic_factor = 1.0 / (1 + (travel_time / 60))
