@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { RouteResponse } from '../types/models';
+import { ActiveTrip, getActiveTripFromRouteInfo, RouteResponse } from '../types/models';
 
 interface FilterState {
   activeVehicles: Set<string>;
-  activeTrip: number | null;
+  activeTrip: ActiveTrip | null;
   setActiveVehicles: (vehicles: Set<string>) => void;
-  setActiveTrip: (trip: number | null) => void;
+  setActiveTrip: (trip: ActiveTrip | null) => void;
   initializeFilters: (route: RouteResponse) => void;
 }
 
@@ -24,7 +24,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     
     set({ 
       activeVehicles: vehicles, 
-      activeTrip: route.vehicle_routes[0]?.stops[0]?.trip_number ?? null 
+      activeTrip: getActiveTripFromRouteInfo(route, 1)
     });
   },
 }));

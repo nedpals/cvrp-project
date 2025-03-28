@@ -70,22 +70,18 @@ export const createLocationPopup = (
     );
 };
 
-export const createDepotPopup = (routes: RouteResponse[]) => {
-    return (
-        <>
-            {routes.map((route) => (
-                route.vehicle_routes.map((vr, idx) => (
-                    <div 
-                        key={`depot-popup-${vr.vehicle_id}`} 
-                        className="font-sans mb-2"
-                        style={{ borderLeft: `4px solid ${getVehicleColor(idx)}` }}
-                    >
-                        <div className="font-bold pl-2">Vehicle {vr.vehicle_id}</div>
-                        <div className="pl-2">Total Distance: {vr.total_distance.toFixed(2)} km</div>
-                        <div className="pl-2">Total Capacity: {vr.capacity.toFixed(2)}L</div>
-                    </div>
-                ))
-            ))}
-        </>
-    );
+export const createDepotPopup = (route: { vehicle_routes: VehicleRouteInfo[] }) => {
+    return (<>
+        {route.vehicle_routes.map((vr, idx) => (
+            <div 
+                key={`depot-popup-${vr.vehicle_id}`} 
+                className="font-sans mb-2"
+                style={{ borderLeft: `4px solid ${getVehicleColor(idx)}` }}
+            >
+                <div className="font-bold pl-2">Vehicle {vr.vehicle_id}</div>
+                <div className="pl-2">Total Distance: {vr.total_distance.toFixed(2)} km</div>
+                <div className="pl-2">Total Capacity: {vr.capacity.toFixed(2)}L</div>
+            </div>
+        ))}
+    </>);
 };

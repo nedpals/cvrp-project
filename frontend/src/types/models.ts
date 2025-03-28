@@ -153,6 +153,40 @@ export interface FrequencyPreset {
     value: number;
 }
 
+export interface ActiveTrip {
+    schedule_id: string;
+    trip_number: number;
+    day: number;
+    total_stops: number;
+    total_distance: number;
+    total_collected: number;
+    total_collection_time: number;
+    total_travel_time: number;
+    vehicle_routes: VehicleRouteInfo[];
+}
+
+export const getActiveTripFromRouteInfo = (route: RouteResponse, tripNumber: number): ActiveTrip => {
+    const vehicleRoutes = route.vehicle_routes.filter(vr => vr.stops.some(stop => stop.trip_number === tripNumber));
+    const stops = vehicleRoutes.flatMap(vr => vr.stops.filter(stop => stop.trip_number === tripNumber));
+    const totalStops = stops.length;
+    const totalDistance = stops.reduce((acc, stop) => acc + stop.distance_from_prev, 0);
+    const totalCollected = stops.reduce((acc, stop) => acc + stop.wco_amount, 0);
+    const totalCollectionTime = stops.reduce((acc, stop) => acc + stop.collection_time, 0);
+    const totalTravelTime = vehicleRoutes.reduce((acc, vr) => acc + vr.total_travel_time, 0);
+
+    return {
+        schedule_id: route.schedule_id,
+        trip_number: tripNumber,
+        day: route.collection_day - route.base_schedule_day,
+        total_stops: totalStops,
+        total_distance: totalDistance,
+        total_collected: totalCollected,
+        total_collection_time: totalCollectionTime,
+        total_travel_time: totalTravelTime,
+        vehicle_routes: vehicleRoutes,
+    };
+};
+    
 export const FREQUENCY_PRESETS: FrequencyPreset[] = [
     { value: 1, label: 'Daily (1 day)' },
     { value: 2, label: 'Every 2 days' },

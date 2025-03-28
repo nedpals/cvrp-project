@@ -40,23 +40,16 @@ function App() {
     }
   }, [routes]);
 
-  const activeVehicleRoutes = useMemo(() => {
-    if (!routes?.[0]) return [];
-    return routes[0].vehicle_routes;
-  }, [routes]);
-
   // Filter locations based on active trip
   const activeLocations = useMemo(() => {
+    if (!activeTrip || !activeTrip.vehicle_routes) return locations;
     return locations?.filter(location => {
-      if (!activeVehicleRoutes) return true;
-      return activeVehicleRoutes.some(vr =>
+      return activeTrip.vehicle_routes.some(vr =>
         (activeVehicles.size === 0 || activeVehicles.has(vr.vehicle_id)) &&
-        vr.stops.some(stop =>
-          (activeTrip === null || activeTrip === stop.trip_number) &&
-          stop.location_id === location.id)
+        vr.stops.some(stop => stop.location_id === location.id)
       );
     }) ?? [];
-  }, [locations, activeVehicles, activeTrip, activeVehicleRoutes]);
+  }, [locations, activeVehicles, activeTrip]);
 
   const handleConfigSubmit = async (config: ConfigRequest) => {
     if (!locations || locations.length === 0) {
@@ -71,9 +64,9 @@ function App() {
   };
 
   const getNextStop = (locationId: string): StopInfo | null => {
-    if (!routes?.[0]) return null;
+    if (!activeTrip) return null;
     
-    for (const vr of routes[0].vehicle_routes) {
+    for (const vr of activeTrip.vehicle_routes) {
       const stopIndex = vr.stops.findIndex(stop => stop.location_id === locationId);
       if (stopIndex !== -1 && stopIndex < vr.stops.length - 1) {
         return vr.stops[stopIndex + 1];
@@ -84,7 +77,7 @@ function App() {
 
   const handleZoomToCoordinates = (coordinates: [number, number]) => {
     // Find the selected stop based on coordinates
-    const selectedStop = routes?.[0]?.vehicle_routes
+    const selectedStop = activeTrip?.vehicle_routes
       .flatMap(vr => vr.stops)
       .find(stop => stop.coordinates[0] === coordinates[0] && stop.coordinates[1] === coordinates[1]);
 
@@ -132,66 +125,95 @@ function App() {
 
   const mapData = useMemo((): MapData => {
     const nextStop = selectedLocationId ? getNextStop(selectedLocationId) : null;
+    const markers = [
+      // Add depot marker always
+      {
+        id: 'depot',
+        position: depot_location,
+        color: 'purple',
+        onClick: () => setSelectedLocationId(null),
+        popup: activeTrip ? createDepotPopup(activeTrip) : <></>
+      },
+      ...activeLocations.map(loc => {
+        const [stopInfo, vehicleInfo, vehicleIndex] = findStopAndVehicleInfo(loc);
+        const isNextStop = nextStop ? loc.id === nextStop.location_id : false;
+  
+        return {
+          id: loc.id,
+          position: loc.coordinates,
+          color: selectedLocationId ? 
+            (loc.id === selectedLocationId ? 'blue' : 
+             isNextStop ? 'green' : 'gray') : 
+            (stopInfo && vehicleIndex >= 0 ? getVehicleColor(vehicleIndex) : 'gray'),
+          popup: createLocationPopup(loc, stopInfo, vehicleInfo, vehicleIndex),
+          onClick: () => handleLocationClick(loc.id)
+        };
+      })
+    ];
 
-    const markers = activeLocations.map(loc => {
-      const [stopInfo, vehicleInfo, vehicleIndex] = findStopAndVehicleInfo(loc);
-      const isNextStop = nextStop ? loc.id === nextStop.location_id : false;
-
-      return {
-        id: loc.id,
-        position: loc.coordinates,
-        color: selectedLocationId ? 
-          (loc.id === selectedLocationId ? 'blue' : 
-           isNextStop ? 'green' : 'gray') : 
-          (stopInfo && vehicleIndex >= 0 ? getVehicleColor(vehicleIndex) : 'gray'),
-        popup: createLocationPopup(loc, stopInfo, vehicleInfo, vehicleIndex),
-        onClick: () => handleLocationClick(loc.id)
-      };
-    });
-
-    // Add depot marker always
-    markers.unshift({
-      id: 'depot',
-      position: depot_location,
-      color: 'purple',
-      onClick: () => setSelectedLocationId(null),
-      popup: routes ? createDepotPopup(routes) : <></>
-    });
-
-    const paths = routes?.flatMap((route) =>
-      route.vehicle_routes.flatMap<MapPath>((vr, vrIndex) => {
-        if (selectedLocationId) {
-          const stopIndex = vr.stops.findIndex(stop => stop.location_id === selectedLocationId);
-          if (stopIndex === -1) return [];
-          
-          // Only show path to next stop
-          if (stopIndex < vr.stops.length - 1) {
-            const currentStop = vr.stops[stopIndex];
-            const nextStop = vr.stops[stopIndex + 1];
-            const tripPath = vr.trip_paths[currentStop.trip_number]?.find(p => 
-              (p.from_coords[0] === currentStop.coordinates[0] && p.from_coords[1] === currentStop.coordinates[1]) && 
-              (p.to_coords[0] === nextStop.coordinates[0] && p.to_coords[1] === nextStop.coordinates[1])
-            );
-            
-            return tripPath ? [{
-              id: `${route.schedule_id}-${vr.vehicle_id}-${stopIndex}`,
-              points: tripPath.path,
-              color: 'red'  // Keep path color as red
-            }] : [];
-          }
+    const paths = activeTrip?.vehicle_routes.flatMap<MapPath>((vr, vrIndex) => {
+      if (selectedLocationId) {
+        const stopIndex = vr.stops.findIndex(stop => stop.location_id === selectedLocationId);
+        if (stopIndex === -1 || stopIndex + 1 >= vr.stops.length) {
           return [];
         }
 
-        return [{
-          id: `${route.schedule_id}-${vr.vehicle_id}`,
-          points: activeTrip ? vr.trip_paths[activeTrip]?.flatMap(stop => stop.path) ?? [] : [],
-          color: getVehicleColor(vrIndex)
-        }];
-      })
-    ) || [];
+        // Only show path to next stop
+        const currentStop = vr.stops[stopIndex];
+        const nextStop = vr.stops[stopIndex + 1];
+        const tripPath = vr.trip_paths[activeTrip.trip_number]?.find(p =>
+          (p.from_coords[0] === currentStop.coordinates[0] && p.from_coords[1] === currentStop.coordinates[1]) &&
+          (p.to_coords[0] === nextStop.coordinates[0] && p.to_coords[1] === nextStop.coordinates[1])
+        );
+
+        return tripPath ? [{
+          id: `${activeTrip.schedule_id}-${vr.vehicle_id}-${stopIndex}`,
+          points: tripPath.path,
+          color: 'red'  // Keep path color as red
+        }] : [];
+      }
+
+      // To avoid overlapping paths, keep track of already crossed points
+      const alreadyCrossed: Record<number, Record<number, boolean>> = {};
+      const activePoints: [number, number][] = [];
+      const activeMarkers: MapPath[] = [];
+
+      for (const paths of vr.trip_paths[activeTrip.trip_number] ?? []) {
+        for (const path of paths.path) {
+          const [x, y] = path;
+          if (!alreadyCrossed[x]) {
+            alreadyCrossed[x] = {};
+          }
+
+          if (!alreadyCrossed[x][y]) {
+            activePoints.push(path);
+            alreadyCrossed[x][y] = true;
+            continue;
+          }
+
+          // if going back, register the path
+          if (activePoints.length >= 1) {
+            activeMarkers.push({
+              id: `${activeTrip.schedule_id}-full-${vr.vehicle_id}-${activePoints.length}-${Math.random()}`,
+              points: Array.from(activePoints),
+              color: getVehicleColor(vrIndex)
+            });
+
+            // empty the active points
+            activePoints.splice(0, activePoints.length);
+          }
+        }
+      }
+
+      return activeMarkers;
+    }) ?? [];
 
     return { markers, paths };
-  }, [activeLocations, activeTrip, routes, depot_location, selectedLocationId]);
+  }, [activeLocations, activeTrip, depot_location, selectedLocationId]);
+
+  useEffect(() => {
+    console.log('Map data:', mapData);
+  }, [mapData]);
 
   return (
     <div className="h-screen w-screen relative overflow-hidden pointer-events-none">
