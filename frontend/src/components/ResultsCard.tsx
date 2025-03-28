@@ -5,6 +5,83 @@ import { cn } from '../utils/utils';
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 
+const LOADING_MESSAGES = [
+  "Teaching vehicles to share and play nice...",
+  "Convincing trucks they don't need a coffee break...",
+  "Untangling the spaghetti routes...",
+  "Calculating the shortest path to happiness...",
+  "Negotiating with the traveling salesman...",
+  "Optimizing routes while trucks take selfies...",
+  "Making sure no truck feels left out...",
+  "Teaching GPS to speak truck language...",
+  "Solving mysteries of capacity constraints...",
+  "Asking vehicles to form an orderly queue...",
+  "OMG like, this truck kay super init na kaayo sa waiting...",
+  "Wait lang ha, ensuring na this route is aesthetic AF...",
+  "Beshy truck is like, super tamad pa mag-compute...",
+  "Dead na ako trying to optimize this collection schedule...",
+  "These trucks are like, super arte about their routes...",
+  "Grabe ang traffic sa depot, chariz! Wait lang...",
+  "Can't even with these capacity constraints rn bestie...",
+  "Literally shaking while calculating shortest paths...",
+  "The sakyanan is having main character moment...",
+  "I can't with these trucks being so extra with their stops..."
+];
+
+const TIME_BASED_MESSAGES = {
+  '60': "One minute na bestie! The trucks are having coffee break...",
+  '120': "Two minutes?! These routes are harder than calculus...",
+  '180': "Three minutes na grabe. The algorithm is doing TikTok...",
+} as const;
+
+function LoadingState() {
+  const [messageIndex, setMessageIndex] = useState(() => Math.floor(Math.random() * LOADING_MESSAGES.length));
+  const [showMessage, setShowMessage] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const showMessageTimeout = setTimeout(() => setShowMessage(true), 10000);
+
+    const timeInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedSeconds(elapsed);
+      
+      // Show time-based message if available, otherwise rotate random messages
+      if (TIME_BASED_MESSAGES[elapsed as unknown as keyof typeof TIME_BASED_MESSAGES]) {
+        setShowMessage(true);
+      } else if (elapsed > 10 && elapsed % 10 === 0) {
+        setMessageIndex(prev => {
+          let nextIndex;
+          do {
+            nextIndex = Math.floor(Math.random() * LOADING_MESSAGES.length);
+          } while (nextIndex === prev);
+          return nextIndex;
+        });
+      }
+    }, 1000);
+
+    return () => {
+      clearTimeout(showMessageTimeout);
+      clearInterval(timeInterval);
+    };
+  }, []);
+
+  const currentMessage = TIME_BASED_MESSAGES[elapsedSeconds as unknown as keyof typeof TIME_BASED_MESSAGES] 
+    ?? LOADING_MESSAGES[messageIndex];
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      {showMessage && (
+        <div className="text-gray-500 text-sm animate-fade-in text-center px-4">
+          {currentMessage}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ResultsCardProps {
   routes: RouteResponse[];
   onZoomToLocation: (coordinates: [number, number]) => void;
@@ -259,9 +336,7 @@ export default function ResultsCard({
   if (isLoading) {
     return (
       <ResultsCardContainer>
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
+        <LoadingState />
       </ResultsCardContainer>
     );
   }
