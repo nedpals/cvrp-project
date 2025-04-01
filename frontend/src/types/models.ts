@@ -166,8 +166,8 @@ export interface ActiveTrip {
 }
 
 export const getActiveTripFromRouteInfo = (route: RouteResponse, tripNumber: number): ActiveTrip => {
-    const vehicleRoutes = route.vehicle_routes.filter(vr => vr.stops.some(stop => stop.trip_number === tripNumber));
-    const stops = vehicleRoutes.flatMap(vr => vr.stops.filter(stop => stop.trip_number === tripNumber));
+    const vehicleRoutes = route.vehicle_routes.map(vr => ({ ...vr, stops: vr.stops.filter(stop => stop.trip_number === tripNumber) }));
+    const stops = vehicleRoutes.flatMap(vr => vr.stops);
     const totalStops = stops.length;
     const totalDistance = stops.reduce((acc, stop) => acc + stop.distance_from_prev, 0);
     const totalCollected = stops.reduce((acc, stop) => acc + stop.wco_amount, 0);

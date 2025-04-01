@@ -233,18 +233,27 @@ export default function ResultsCard({
   };
 
   const trips = useMemo(() => {
-    const trips = new Set<number>();
+    const _uniqueTrips = new Set<number>();
+    const _trips: { day: number, trip_number: number, formatted_trip_number: number }[] = [];
 
     // Assume that routes is a multi-day route of the same schedule
     routes.forEach((route, routeDay) => {
       route.vehicle_routes.forEach(vr => {
         vr.stops.forEach(stop => {
-          trips.add(routeDay + stop.trip_number);
+          if (_uniqueTrips.has(stop.trip_number)) return;
+
+          _trips.push({
+            day: routeDay,
+            trip_number: stop.trip_number,
+            formatted_trip_number: routeDay + stop.trip_number
+          });
+
+          _uniqueTrips.add(routeDay + stop.trip_number);
         });
       });
     });
 
-    return Array.from(trips).sort((a, b) => a - b);
+    return _trips;
   }, [routes]);
 
   const showTripControls = trips.length > 1;
@@ -435,34 +444,21 @@ export default function ResultsCard({
       {showTripControls && (
         <div className="px-3 py-2.5 border-b border-gray-100 bg-white sticky top-0 z-10">
           <div className="flex gap-1.5 flex-wrap items-center">
-            {trips.map(tripNumber => (
+            {trips.map(({ day, trip_number, formatted_trip_number }) => (
               <button
-                key={tripNumber}
+                key={`trip_${day}_${trip_number}_${formatted_trip_number}`}
                 onClick={() => {
-                  for (let dayIdx = 0; dayIdx < routes.length; dayIdx++) {
-                    const startTripRange = routes[dayIdx].total_trips * dayIdx + 1;
-                    const endTripRange = routes[dayIdx].total_trips * (dayIdx + 1);
-                    if (tripNumber < startTripRange || tripNumber > endTripRange) {
-                      continue;
-                    }
-
-                    if (activeTrip && activeTrip.day + activeTrip.trip_number === tripNumber) {
-                      return;
-                    }
-                    
-                    const tripIdx = tripNumber - startTripRange;
-                    setActiveTrip(getActiveTripFromRouteInfo(routes[dayIdx], tripIdx + 1));
-                    return;
-                  }
+                  console.log('Trip button clicked:', day, trip_number);
+                  setActiveTrip(getActiveTripFromRouteInfo(routes[day], trip_number));
                 }}
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                  activeTrip && activeTrip.day + activeTrip.trip_number === tripNumber
+                  activeTrip && activeTrip.day === day && activeTrip.trip_number === trip_number
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
                 )}
               >
-                Trip {tripNumber}
+                Trip {formatted_trip_number}
               </button>
             ))}
           </div>
@@ -564,7 +560,7 @@ export default function ResultsCard({
           {(!showTripControls || activeTab === 'stops') && (
             <div className="flex-1 overflow-y-auto bg-gray-50/50 p-2 space-y-2">
               {activeTrip.vehicle_routes.map((vr) => (
-                <div key={vr.vehicle_id} 
+                <div key={`vehicle_${activeTrip.day}_${activeTrip.trip_number}_${vr.vehicle_id}`} 
                      className={cn(
                        'rounded-lg bg-white shadow-sm transition-all',
                        activeVehicles.has(vr.vehicle_id) ? 'not-disabled:ring-2 ring-blue-100' : ''

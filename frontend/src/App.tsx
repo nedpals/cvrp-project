@@ -105,6 +105,8 @@ function App() {
     if (!stops.length) return;
     // Add slight delay to ensure map is ready
     setTimeout(() => {
+      // Remove selected location ID to avoid confusion
+      setSelectedLocationId(null);
       mapRef.current?.fitBounds(stops.map(stop => stop.coordinates), ZOOM_OFFSET);
     }, 50);
   };
@@ -212,7 +214,9 @@ function App() {
   }, [activeLocations, activeTrip, depot_location, selectedLocationId]);
 
   useEffect(() => {
-    console.log('Map data:', mapData);
+    if (import.meta.env.DEV) {
+      console.log('Map data:', mapData);
+    }
   }, [mapData]);
 
   return (
@@ -245,7 +249,7 @@ function App() {
             error={error}
             onRetry={retry}
             selectedLocationId={selectedLocationId}
-            onLocationSelect={(locationId) => locationId && handleLocationClick(locationId)}
+            onLocationSelect={(locationId) => locationId && handleLocationClick(locationId || '')}
           />
         </div>
 
