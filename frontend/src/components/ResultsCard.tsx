@@ -470,24 +470,12 @@ export default function ResultsCard({
         <>
           {showTripControls ? (
             <div className="border-b border-gray-100 bg-white">
-              {/* Trip Header */}
-              <div className="px-3 pt-2">
-                <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-blue-600">Trip {activeTrip.trip_number + activeTrip.day} Collection</span>
-                    <span className="font-semibold text-blue-900 text-base">
-                      {currentTripStats.wcoTotal.toFixed(1)}L
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               {/* Tab Navigation */}
-              <div className="flex gap-2 px-3 mt-2">
+              <div className="flex gap-2 px-3 my-2">
                 <button
                   onClick={() => setActiveTab('stops')}
                   className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                    'flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
                     activeTab === 'stops'
                       ? 'bg-gray-900 text-white'
                       : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
@@ -498,7 +486,7 @@ export default function ResultsCard({
                 <button
                   onClick={() => setActiveTab('stats')}
                   className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                    'flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
                     activeTab === 'stats'
                       ? 'bg-gray-900 text-white'
                       : 'bg-gray-50 hover:bg-gray-100 text-gray-600'
@@ -509,50 +497,59 @@ export default function ResultsCard({
               </div>
 
               {/* Tab Content */}
-              <div className="px-3 py-2">
-                {activeTab === 'stats' && (() => {
-                  return (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Distance</span>
-                          <span className="font-medium text-gray-900">{currentTripStats.distance.toFixed(1)}km</span>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Duration</span>
-                          <span className="font-medium text-gray-900">{formatDuration(currentTripStats.duration)}</span>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Travel Time</span>
-                          <span className="font-medium text-gray-900">{formatDuration(currentTripStats.travelTime)}</span>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Collection Time</span>
-                          <span className="font-medium text-gray-900">{formatDuration(currentTripStats.collectionTime)}</span>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Stops</span>
-                          <span className="font-medium text-gray-900">{currentTripStats.stopCount}</span>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 text-xs">Vehicles</span>
-                          <span className="font-medium text-gray-900">{currentTripStats.vehicleCount}</span>
-                        </div>
+              {activeTab === 'stats' && (
+                <div className="px-3 pb-2">
+                  {/* Trip Header */}
+                  <div className="pb-2">
+                    <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-blue-600">Trip {activeTrip.trip_number + activeTrip.day} Collection</span>
+                        <span className="font-semibold text-blue-900 text-base">
+                          {currentTripStats.wcoTotal.toFixed(1)}L
+                        </span>
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Distance</span>
+                        <span className="font-medium text-gray-900">{currentTripStats.distance.toFixed(1)}km</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Duration</span>
+                        <span className="font-medium text-gray-900">{formatDuration(currentTripStats.duration)}</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Travel Time</span>
+                        <span className="font-medium text-gray-900">{formatDuration(currentTripStats.travelTime)}</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Collection Time</span>
+                        <span className="font-medium text-gray-900">{formatDuration(currentTripStats.collectionTime)}</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Stops</span>
+                        <span className="font-medium text-gray-900">{currentTripStats.stopCount}</span>
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 text-xs">Vehicles</span>
+                        <span className="font-medium text-gray-900">{currentTripStats.vehicleCount}</span>
+                      </div>
+                    </div>
+                  </div>
+              </div>)}
             </div>
           ) : null}
 
