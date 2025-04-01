@@ -5,6 +5,7 @@ from math import radians, sin, cos, sqrt, atan2
 from utils import calculate_distance
 
 class BaseSolver(ABC):
+    id = "base_solver"
     name = "Base Solver"
     description = "Abstract base solver class"
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Tuple, Optional
 from utils import MAX_DAILY_TIME
+from solvers.solvers import DEFAULT_SOLVER_ID
 from models.shared_models import (
     Location,
     RouteConstraints,
@@ -18,7 +19,7 @@ class VehicleConfig(BaseModel):
     capacity: float
 
 class SolveConfig(BaseModel):
-    solver: Optional[str] = 'schedule'
+    solver: Optional[str] = DEFAULT_SOLVER_ID
     vehicles: List['VehicleConfig']
     depot_location: Tuple[float, float]
     constraints: 'RouteConstraints'

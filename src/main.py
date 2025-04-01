@@ -35,7 +35,7 @@ from models.location_registry import LocationRegistry
 from cvrp import CVRP
 from data.schedule_loader import ScheduleLoader
 from api.server import start_api_server
-from solvers.solvers import SOLVERS
+from solvers.solvers import SOLVERS, DEFAULT_SOLVER_ID
 
 class DateTimeEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle datetime objects and custom classes"""
@@ -53,7 +53,6 @@ class CvrpSystem:
     def __init__(self):
         self.api_key = os.getenv('ORS_API_KEY')
         self.data_path = Path(__file__).parent.parent / 'data'
-        self.output_path = self.create_output_directory()
 
     def create_output_directory(self) -> Path:
         """Create timestamped output directory for results."""
@@ -74,7 +73,7 @@ class CvrpSystem:
             '--solver', 
             type=str,
             choices=list(SOLVERS.keys()),
-            default='schedule',
+            default=DEFAULT_SOLVER_ID,
             help='Solver to use for route optimization'
         )
         parser.add_argument(
@@ -128,11 +127,13 @@ class CvrpSystem:
             if base_id not in schedule_groups:
                 schedule_groups[base_id] = []
             schedule_groups[base_id].append(analysis)
+
+        output_path = self.create_output_directory()
         
         # Process each schedule group
         for base_id, schedule_results in schedule_groups.items():
             # Create schedule directory
-            schedule_dir = self.output_path / base_id
+            schedule_dir = output_path / base_id
             schedule_dir.mkdir(exist_ok=True)
             
             print(f"\nProcessing results for schedule {base_id}:")

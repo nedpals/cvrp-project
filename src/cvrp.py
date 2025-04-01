@@ -5,10 +5,11 @@ from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
 from models.route_data import RouteAnalysisResult, VehicleRouteInfo, StopInfo
 from solvers.base_solver import BaseSolver
+from solvers.or_tools_solver import ORToolsSolver
 from scheduling.collection_scheduler import CollectionScheduler
 from utils import calculate_distance
 from datetime import datetime
-from solvers.or_tools_solver import ORToolsSolver
+
 from utils import MAX_DAILY_TIME
 
 class CVRP:
@@ -35,9 +36,28 @@ class CVRP:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
+        
+        total_locations = sum(len(locations) for locations in vehicle_assignments)
+
+        minimum_optimization_threshold = 5
+        if total_locations < minimum_optimization_threshold:
+            print("Not enough locations to optimize. Returning original assignments.")
+            return vehicle_assignments
+
+        should_print = total_locations <= minimum_optimization_threshold
+        if should_print:
+            # Print all locations
+            print("Locations to optimize:")
+            for assignments in vehicle_assignments:
+                for loc in assignments:
+                    if loc is not None:
+                        print(f"  - {loc.name} (ID: {loc.id})")
 
         # If instanceof solver is ORToolsSolver, then use it in parallel to all vehicles
-        if isinstance(self.solver_class, ORToolsSolver):
+        print(f'Using solver: {self.solver_class.name}')
+
+        if self.solver_class.id == ORToolsSolver.id:
+            print('uses or-tools solver')
             list_of_locations: List[Location] = []
 
             # Flatten the list of locations
@@ -52,7 +72,16 @@ class CVRP:
                 stop_time=stop_time,
                 max_daily_time=self.max_daily_time
             )
+
             vehicle_routes = solver.solve()
+            if total_locations < 6:
+                # Print all locations
+                print("Optimized locations:")
+                for new_assignments in vehicle_routes:
+                    for loc in new_assignments:
+                        if loc is not None:
+                            print(f"  - {loc.name} (ID: {loc.id})")
+
             return vehicle_routes
 
         # Process each vehicle's assignments independently to ensure single trip
@@ -127,75 +156,86 @@ class CVRP:
             processed_location_ids = set()
             location_assignments = {}  # Track which day each location is assigned to
             
-            # Get balanced daily assignments from scheduler
-            balanced_assignments = self.collection_scheduler.balance_daily_collections(
-                locations=schedule_locations,
-                vehicles=self.vehicles,
-                original_day=schedule.frequency,
-                collection_time=schedule.collection_time_minutes
-            )
+            day = schedule.frequency
+            remaining_locations = schedule_locations.copy()
+            trip_number = 0
 
-            # Process each day's assignments
-            for day, day_locations in balanced_assignments.items():
-                if not day_locations:
-                    continue
-                    
-                print(f"\nProcessing day {day} for {schedule.name}")
-                print(f"Assigned locations for day {day}: {len(day_locations)}")
+            # Process each day's assignments                    
+            print(f"\nProcessing day {day} for {schedule.name}")
+            print(f"Assigned locations for day {day}: {len(schedule_locations)}")
 
-                remaining_locations = day_locations.copy()
-                trip_number = 0
+            # Force reassignment if all locations are left
+            minimum_force_threshold = 5
 
-                while len(remaining_locations) > 0:
-                    # Get vehicle assignments from scheduler
-                    initial_assignments = self.collection_scheduler.optimize_vehicle_assignments(
-                        vehicles=self.vehicles,
-                        day=day,
-                        locations=remaining_locations
-                    )
+            while len(remaining_locations) > 0:
+                if len(remaining_locations) <= minimum_force_threshold:
+                    print("Force reassignment of all locations to vehicles:")
+                    for location in remaining_locations:
+                        print(f"  - {location.name} (ID: {location.id})")
 
-                    # Then use solver to optimize the routes
-                    vehicle_assignments = self.optimize_routes(
-                        vehicle_assignments=initial_assignments,
-                        stop_time=schedule.collection_time_minutes,
-                        speed_kph=speed_kph
-                    )
+                # Get vehicle assignments from scheduler
+                initial_assignments = self.collection_scheduler.optimize_vehicle_assignments(
+                    vehicles=self.vehicles,
+                    day=day,
+                    locations=remaining_locations,
+                    force_assign=len(remaining_locations) <= minimum_force_threshold, # Force reassignment if all locations are left
+                )
 
-                    if vehicle_assignments:
-                        trip_number += 1
-                    
-                    # Register collections
-                    for v_idx, assigned_locations in enumerate(vehicle_assignments):
-                        if not assigned_locations:
+                total_initial_assignments_len = sum(len(locations) for locations in initial_assignments)
+                if total_initial_assignments_len == 0 and len(remaining_locations) > 0:
+                    break
+
+                print(f"Initial vehicle assignments for day {day}:")
+                for v_idx, assigned_locations in enumerate(initial_assignments):
+                    print(f"  Vehicle {self.vehicles[v_idx].id}: {len(assigned_locations)} locations")
+
+                # Then use solver to optimize the routes
+                vehicle_assignments = self.optimize_routes(
+                    vehicle_assignments=initial_assignments,
+                    stop_time=schedule.collection_time_minutes,
+                    speed_kph=speed_kph
+                )
+
+                if vehicle_assignments:
+                    trip_number += 1
+                
+                # Register collections
+                for v_idx, assigned_locations in enumerate(vehicle_assignments):
+                    if not assigned_locations:
+                        continue
+                        
+                    vehicle = self.vehicles[v_idx]
+                    current_load = 0.0
+
+                    for location in assigned_locations:
+                        if location is None:
+                            # Presumed depot start or end
                             continue
-                            
-                        vehicle = self.vehicles[v_idx]
-                        current_load = 0.0
 
-                        for location in assigned_locations:
-                            if location is None:
-                                # Presumed depot start or end
-                                continue
+                        location_assignments[location.id] = day
 
-                            location_assignments[location.id] = day
+                        # Register collection with tracker
+                        success = collection_tracker.register_collection(
+                            vehicle_id=vehicle.id,
+                            day=day,
+                            trip_number=trip_number,
+                            location=location,
+                            depot_location=vehicle.depot_location,
+                            collection_time_minutes=schedule.collection_time_minutes
+                        )
+                        
+                        if success:
+                            current_load += location.wco_amount
 
-                            # Register collection with tracker
-                            success = collection_tracker.register_collection(
-                                vehicle_id=vehicle.id,
-                                day=day,
-                                trip_number=trip_number,
-                                location=location,
-                                depot_location=vehicle.depot_location,
-                                collection_time_minutes=schedule.collection_time_minutes
-                            )
-                            
-                            if success:
-                                current_load += location.wco_amount
-   
-                            # Track processed locations
-                            processed_location_ids.add(location.id)
+                        # Track processed locations
+                        processed_location_ids.add(location.id)
 
-                    remaining_locations = [loc for loc in remaining_locations if loc.id not in processed_location_ids]
+                remaining_locations = [loc for loc in remaining_locations if loc.id not in processed_location_ids]
+
+                if remaining_locations and len(remaining_locations) <= 5:
+                    print(f"Remaining locations for day {day}: {len(remaining_locations)}")
+                    for loc in remaining_locations:
+                        print(f"  - {loc.name} (ID: {loc.id})")
 
             # Detailed verification of locations
             missing_locations = []
@@ -230,8 +270,7 @@ class CVRP:
                 print("1. Vehicle capacity constraints")
                 print(f"2. Time budget constraints ({self.max_daily_time/60:.1f}-hour workday)")
                 print("3. Travel time constraints")
-                print(f"4. Distance from depot (check locations > {self.collection_scheduler.MAX_TRAVEL_TIME/60:.1f} hours away)")
-            
+
             # Generate analysis for all days of this schedule
             schedule_results = self.generate_analysis_data(
                 schedule_id=schedule.id,

@@ -5,8 +5,10 @@ from .basic_solver import BasicSolver
 
 # Solver mapping
 SOLVERS = {
-    'ortools': ORToolsSolver,
-    'greedy': GreedySolver,
-    'nearest': NearestNeighborSolver,
-    'schedule': BasicSolver
+    ORToolsSolver.id: ORToolsSolver,
+    GreedySolver.id: GreedySolver,
+    NearestNeighborSolver.id: NearestNeighborSolver,
+    BasicSolver.id: BasicSolver,
 }
+
+DEFAULT_SOLVER_ID = BasicSolver.id

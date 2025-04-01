@@ -4,6 +4,7 @@ from .base_solver import BaseSolver
 import heapq
 
 class GreedySolver(BaseSolver):
+    id = "greedy_solver"
     name = "Greedy Solver"
     description = "Fast solver that prioritizes closest locations and maximum capacity utilization. Good for simple routes."
 

@@ -4,6 +4,7 @@ from models.location import Location
 from models.shared_models import AVERAGE_SPEED_KPH
 import numpy as np
 from sklearn.cluster import KMeans
+from utils import estimate_collection_time
 
 @dataclass
 class GeographicCluster:
@@ -27,7 +28,9 @@ class GeographicClusterer:
         """Estimate collection time based on WCO amount, capped at max_time_per_stop"""
         # base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
         # return min(self.max_time_per_stop, base_time)
-        return self.max_time_per_stop
+
+        # Soft-replacement for the above commented-out code
+        return estimate_collection_time(location, self.max_time_per_stop)
 
     def cluster_locations(self, locations: List[Location], pure_geographic: bool = True) -> List[GeographicCluster]:
         """

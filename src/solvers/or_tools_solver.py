@@ -6,7 +6,10 @@ from .base_solver import BaseSolver
 from typing import List
 from utils import MAX_DAILY_TIME
 
+import traceback
+
 class ORToolsSolver(BaseSolver):
+    id = "or_tools_solver"
     name = "Google OR-Tools Solver"
     description = "Advanced optimization solver using Google's Operations Research tools. Best for complex routing problems."
 
@@ -46,14 +49,15 @@ class ORToolsSolver(BaseSolver):
         # Distance callback
         def distance_callback(from_index, to_index):
             try:
-                from_node = manager.IndexToNode(int(from_index))
-                to_node = manager.IndexToNode(int(to_index))
-                return int(self._calculate_distance(
+                from_node = manager.IndexToNode(from_index)
+                to_node = manager.IndexToNode(to_index)
+                distance = self._calculate_distance(
                     self.locations[from_node].coordinates,
                     self.locations[to_node].coordinates
-                ))
+                )
+                return int(round(distance))  # Ensure integer return
             except Exception as e:
-                print(f"Error in distance_callback: {e}")
+                print(f"Error in distance_callback: {str(e)}")
                 return 0
 
         transit_callback_index = routing.RegisterTransitCallback(distance_callback)
@@ -78,8 +82,8 @@ class ORToolsSolver(BaseSolver):
         # Define time window constraints with scheduler constants
         def time_callback(from_index, to_index):
             try:
-                from_node = manager.IndexToNode(int(from_index))
-                to_node = manager.IndexToNode(int(to_index))
+                from_node = manager.IndexToNode(from_index)
+                to_node = manager.IndexToNode(to_index)
                 
                 # Add service time for the from_node (except depot)
                 service_time = 0
@@ -92,11 +96,11 @@ class ORToolsSolver(BaseSolver):
                     self.locations[to_node].coordinates
                 )
                 
-                travel_time = int(distance / self.speed_kph * 60)
-                return travel_time + service_time
+                travel_time = round(distance / self.speed_kph * 60)  # Round to nearest minute
+                return int(travel_time + service_time)  # Ensure integer return
             except Exception as e:
-                print(f"Error in time_callback: {e}")
-                return self.stop_time
+                print(f"Error in time_callback: {str(e)}")
+                return int(self.stop_time)
 
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         routing.AddDimension(
@@ -123,13 +127,14 @@ class ORToolsSolver(BaseSolver):
         def demand_callback(from_index):
             """Return the demand of the node (WCO amount to collect)"""
             try:
-                from_node = manager.IndexToNode(int(from_index))
                 # Depot has zero demand
-                if from_node == depot_index:
+                if int(from_index) == depot_index:
                     return 0
+                from_node = manager.IndexToNode(int(from_index))
                 return int(self.locations[from_node].wco_amount * 10)  # Multiply by 10 to handle decimal values
             except Exception as e:
                 print(f"Error in demand_callback: {e}")
+                traceback.print_exception(e)
                 return 0
 
         demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)

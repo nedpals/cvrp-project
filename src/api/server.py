@@ -18,7 +18,7 @@ from models.shared_models import (
 )
 from models.config import Config, MapConfig, SolveConfig
 from models.location_registry import LocationRegistry
-from solvers.solvers import SOLVERS
+from solvers.solvers import SOLVERS, DEFAULT_SOLVER_ID
 from cvrp import CVRP
 
 import os
@@ -185,7 +185,7 @@ async def get_default_config():
             ],
             locations=[],
             settings=SolveConfig(
-                solver='schedule',
+                solver=DEFAULT_SOLVER_ID,
                 vehicles=[],
                 depot_location=(7.099907716684531, 125.58941003079195),
                 constraints=RouteConstraints(one_way_roads=[])

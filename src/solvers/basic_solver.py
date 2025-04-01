@@ -3,6 +3,7 @@ from models.location import Location, Vehicle, RouteConstraints
 from .base_solver import BaseSolver
 
 class BasicSolver(BaseSolver):
+    id = "basic_solver"
     name = "Basic Solver"
     description = "Simple solver that generates routes without optimization"
 

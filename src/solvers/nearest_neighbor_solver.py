@@ -3,6 +3,7 @@ from .base_solver import BaseSolver
 from typing import List
 
 class NearestNeighborSolver(BaseSolver):
+    id = "nearest_neighbor_solver"
     name = "Nearest Neighbor Solver"
     description = "Simple solver that always chooses the closest next location. Fast but may not find optimal solutions."
 
@@ -20,7 +21,7 @@ class NearestNeighborSolver(BaseSolver):
             key=lambda x: (-x[1].distance_from_depot, -x[1].wco_amount)
         )
         
-        for vehicle_idx, vehicle in enumerate(self.vehicles):
+        for vehicle in self.vehicles:
             route = [None]  # Depot placeholder
             current_load = 0.0
             current_pos = self.depot_location

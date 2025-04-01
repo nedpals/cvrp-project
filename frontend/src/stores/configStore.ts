@@ -43,7 +43,7 @@ const defaultConfig: ConfigRequest = {
     path_opacity: 0.6
   },
   settings: {
-    solver: 'schedule',
+    solver: 'basic_solver',
     vehicles: [],
     depot_location: [7.06427, 125.60566],
     constraints: {
