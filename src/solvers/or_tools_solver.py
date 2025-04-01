@@ -1,21 +1,19 @@
-from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 from ortools.constraint_solver.pywrapcp import RoutingIndexManager, RoutingModel
 from models.location import Location, Vehicle, RouteConstraints
 from models.shared_models import AVERAGE_SPEED_KPH
 from .base_solver import BaseSolver
 from typing import List
-from utils import estimate_collection_time
+from utils import MAX_DAILY_TIME
 
 class ORToolsSolver(BaseSolver):
     name = "Google OR-Tools Solver"
     description = "Advanced optimization solver using Google's Operations Research tools. Best for complex routing problems."
 
-    def __init__(self, locations: list[Location], vehicles: list[Vehicle], constraints: RouteConstraints):
+    def __init__(self, locations: list[Location], vehicles: list[Vehicle], constraints: RouteConstraints, stop_time: int = 15, speed_kph: int = AVERAGE_SPEED_KPH):
         super().__init__(locations, vehicles, constraints)
-        self.MAX_DAILY_TIME = 7 * 60  # Total working day in minutes (from CollectionScheduler)
-        self.MAX_STOP_TIME = 15  # Maximum minutes allowed per establishment
-        self.SPEED_KPH = AVERAGE_SPEED_KPH
+        self.stop_time = stop_time
+        self.speed_kph = speed_kph
 
     def solve(self):
         # Handle edge cases
@@ -85,18 +83,15 @@ class ORToolsSolver(BaseSolver):
                 # Add service time for the from_node (except depot)
                 service_time = 0
                 if from_node != depot_index:
-                    service_time = max(5, min(
-                        int(estimate_collection_time(self.locations[from_node], self.MAX_STOP_TIME) * 1.2),
-                        self.MAX_STOP_TIME
-                    ))
+                    service_time = self.stop_time
                 
                 # Calculate travel time
                 distance = self._calculate_distance(
                     self.locations[from_node].coordinates,
                     self.locations[to_node].coordinates
                 )
-                travel_time = int(distance / self.SPEED_KPH * 60)
                 
+                travel_time = int(distance / self.speed_kph * 60)
                 return travel_time + service_time
             except Exception as e:
                 print(f"Error in time_callback: {e}")
@@ -106,22 +101,22 @@ class ORToolsSolver(BaseSolver):
         routing.AddDimension(
             time_callback_index,
             60,  # Allow 60 minute slack for breaks
-            self.MAX_DAILY_TIME * 2,  # Double the max daily time to allow for flexibility
+            MAX_DAILY_TIME * 2,  # Double the max daily time to allow for flexibility
             True,  # Force start cumul to zero
             'Time'
         )
 
         time_dimension = routing.GetDimensionOrDie('Time')
         
-        # Set working hours constraints with more flexibility
+        # # Set working hours constraints with more flexibility
         for location_idx in range(num_locations):
             index = manager.NodeToIndex(location_idx)
             if location_idx == depot_index:
                 # Allow depot visits at any time
-                time_dimension.CumulVar(index).SetRange(0, self.MAX_DAILY_TIME * 2)
+                time_dimension.CumulVar(index).SetRange(0, MAX_DAILY_TIME * 2)
             else:
                 # Give more flexible time windows for locations
-                time_dimension.CumulVar(index).SetRange(0, self.MAX_DAILY_TIME)
+                time_dimension.CumulVar(index).SetRange(0, MAX_DAILY_TIME)
 
         # Add a dimension for capacity
         def demand_callback(from_index):
@@ -151,8 +146,7 @@ class ORToolsSolver(BaseSolver):
 
         # Add constraint to prevent returns to depot before all locations are visited
         for vehicle_id in range(num_vehicles):
-            index = routing.Start(vehicle_id)
-            routing.AddDisjunction([index], 0)  # Allow not using all vehicles
+            routing.AddDisjunction([routing.Start(vehicle_id)], 0) # Allow not using all vehicles
 
         # Use guided local search with optimized parameters
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()

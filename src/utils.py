@@ -1,6 +1,8 @@
 from math import radians, sin, cos, sqrt, atan2
 from typing import Tuple
 
+MAX_DAILY_TIME = 7 * 60  # Total working day in minutes (from CollectionScheduler)
+
 def calculate_distance(coord1: Tuple[float, float], coord2: Tuple[float, float]) -> float:
     """Calculate distance between coordinates using Haversine formula"""
     lat1, lon1 = map(radians, coord1)

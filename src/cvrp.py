@@ -29,17 +29,25 @@ class CVRP:
         
         return locations
 
-    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]]) -> List[List[Location]]:
+    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]], stop_time = 15, speed_kph = AVERAGE_SPEED_KPH) -> List[List[Location]]:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
 
         # If instanceof solver is ORToolsSolver, then use it in parallel to all vehicles
         if isinstance(self.solver_class, ORToolsSolver):
+            list_of_locations: List[Location] = []
+
+            # Flatten the list of locations
+            for locations in vehicle_assignments:
+                list_of_locations.extend([loc for loc in locations if loc is not None])
+
             solver = self.solver_class(
-                locations=[loc for loc in locations if loc is not None],
+                locations=list_of_locations,
                 vehicles=self.vehicles,
-                constraints=self.constraints
+                constraints=self.constraints,
+                speed_kph=speed_kph,
+                stop_time=stop_time
             )
             vehicle_routes = solver.solve()
             return vehicle_routes
@@ -65,7 +73,7 @@ class CVRP:
         return optimized_assignments
 
 
-    def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, with_scheduling: bool = True, speed_kph: float = AVERAGE_SPEED_KPH) -> Tuple[List[RouteAnalysisResult], TripCollection]:
+    def process(self, schedule_entries: Iterable[ScheduleEntry], locations: LocationRegistry, speed_kph: float = AVERAGE_SPEED_KPH) -> Tuple[List[RouteAnalysisResult], TripCollection]:
         """Process schedules independently.
         
         Each schedule is processed separately and may span multiple days if needed based on:
@@ -144,7 +152,9 @@ class CVRP:
 
                     # Then use solver to optimize the routes
                     vehicle_assignments = self.optimize_routes(
-                        vehicle_assignments=initial_assignments
+                        vehicle_assignments=initial_assignments,
+                        stop_time=schedule.collection_time_minutes,
+                        speed_kph=speed_kph
                     )
 
                     if vehicle_assignments:

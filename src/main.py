@@ -217,13 +217,11 @@ class CvrpSystem:
             results, collection_tracker = cvrp.process(
                 schedule_entries=config.schedules,
                 locations=locations,
-                with_scheduling=not args.disable_scheduling,
                 speed_kph=config.settings.average_speed_kph
             )
             
             # Save results
             self.save_analysis_results(config, cvrp, results, collection_tracker)
-
         except Exception as e:
             print(f"Error processing schedules: {e}")
             traceback.print_exc()
