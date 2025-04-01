@@ -68,7 +68,7 @@ export default function ScheduleLocationsTab({
     });
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3 h-full flex flex-col">
             {/* Schedule Selection */}
             <div className="flex items-center gap-2 px-3 pt-3">
                 <select
@@ -121,7 +121,7 @@ export default function ScheduleLocationsTab({
             />
 
             {/* Locations List */}
-            <div className="bg-white rounded-lg overflow-hidden flex flex-col h-[400px]">
+            <div className="bg-white rounded-lg overflow-hidden flex flex-col h-[400px] flex-1">
                 <div className="px-3 py-2 border-y border-gray-100 flex justify-between items-center">
                     <div className="flex justify-between items-center w-full">
                         <p className="text-xs font-medium text-gray-900">

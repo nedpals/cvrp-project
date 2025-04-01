@@ -640,7 +640,7 @@ export default function ResultsCard({
                                   )}>
                                     {isDepotStart ? 'S' : 
                                      isDepotEnd ? 'E' : 
-                                     idx + 1}
+                                     idx}
                                   </div>
                                   {!isDepotStart && stop.distance_from_prev !== undefined && (
                                     <div className="text-[10px] text-gray-500 font-medium">
