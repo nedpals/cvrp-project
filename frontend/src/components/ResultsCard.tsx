@@ -73,10 +73,13 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      {showMessage && (
-        <div className="text-gray-500 text-sm animate-fade-in text-center px-4">
+      {showMessage ? (
+        <div className="text-gray-500 text-xs animate-fade-in text-center px-4 mt-4">
           {currentMessage}
         </div>
+      ) : (
+        // Empty box to maintain space
+        <span className="w-32 h-4 block"></span>
       )}
     </div>
   );
