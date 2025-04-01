@@ -52,12 +52,12 @@ function App() {
   }, [locations, activeVehicles, activeTrip]);
 
   const handleConfigSubmit = async (config: ConfigRequest) => {
-    if (!locations || locations.length === 0) {
+    if (!config.locations || config.locations.length === 0) {
       return;
     }
 
     try {
-      await generateRoutes(config, locations);
+      await generateRoutes(config, config.locations);
     } catch (error) {
       console.error('Error:', error);
     }
