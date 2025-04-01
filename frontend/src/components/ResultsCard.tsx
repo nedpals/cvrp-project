@@ -233,22 +233,33 @@ export default function ResultsCard({
   };
 
   const trips = useMemo(() => {
-    const _uniqueTrips = new Set<number>();
+    const _uniqueTrips: Record<number, Record<number, boolean>> = {};
     const _trips: { day: number, trip_number: number, formatted_trip_number: number }[] = [];
+    let lastTripNumber = 0;
 
     // Assume that routes is a multi-day route of the same schedule
     routes.forEach((route, routeDay) => {
       route.vehicle_routes.forEach(vr => {
         vr.stops.forEach(stop => {
-          if (_uniqueTrips.has(routeDay + stop.trip_number)) return;
+          if (_uniqueTrips[routeDay]?.[stop.trip_number]) {
+            console.log('Trip already exists:', routeDay, stop.trip_number, stop.name);
+            return;
+          }
 
           _trips.push({
             day: routeDay,
             trip_number: stop.trip_number,
-            formatted_trip_number: routeDay + stop.trip_number
+            formatted_trip_number: lastTripNumber + 1
           });
 
-          _uniqueTrips.add(routeDay + stop.trip_number);
+          if (!_uniqueTrips[routeDay]) {
+            _uniqueTrips[routeDay] = {};
+          }
+
+          _uniqueTrips[routeDay][stop.trip_number] = true;
+
+          // Increment last trip number if it's the last stop of the day
+          lastTripNumber++;
         });
       });
     });
