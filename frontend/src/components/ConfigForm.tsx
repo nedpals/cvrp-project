@@ -6,6 +6,7 @@ import { useConfigStore } from '../stores/configStore';
 import LocationEditorModal from './LocationEditorModal';
 import BulkImportWrapper from './BulkImportWrapper';
 import { useSolversList } from '../hooks/useSolvers';
+import * as sd from 'simple-duration';
 
 interface ConfigFormProps {
     onSubmit: (config: ConfigRequest) => void;
@@ -25,6 +26,7 @@ export default function ConfigForm({
     const [editingLocation, setEditingLocation] = useState<Location | undefined>();
     const [currentSchedule, setCurrentSchedule] = useState<string | null>(null);
     const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+    const [humanMaxDailyTime, setHumanMaxDailyTime] = useState('8h');
 
     const { solvers, isLoading: isSolversLoading, error: solverListErr } = useSolversList();
 
@@ -52,6 +54,7 @@ export default function ConfigForm({
             solver,
             vehicles,
             depot_location,
+            max_daily_time,
             constraints: { one_way_roads }
         }
     } = config;
@@ -59,6 +62,12 @@ export default function ConfigForm({
     useEffect(() => {
         loadDefaultConfig();
     }, []);
+
+    useEffect(() => {
+        // convert max_daily_time (in minutes) to seconds
+        const maxDailyTimeInSeconds = max_daily_time * 60;
+        setHumanMaxDailyTime(sd.stringify(maxDailyTimeInSeconds));
+    }, [max_daily_time]);
 
     useEffect(() => {
         if (defaultSolver && !solver) {
@@ -79,6 +88,10 @@ export default function ConfigForm({
 
         onSubmit({
             ...config,
+            settings: {
+                ...config.settings,
+                max_daily_time: sd.parse(humanMaxDailyTime) / 60, // convert seconds to minutes
+            },
             schedules: selectedSchedules,
         });
     };
@@ -251,6 +264,58 @@ export default function ConfigForm({
                         >
                             {isLoading ? 'Calculating...' : 'Generate Routes'}
                         </button>
+                    </div>
+
+                    {/* Time Constraints Section */}
+                    <div className="border-t border-gray-100">
+                        <button
+                            type="button"
+                            onClick={() => toggleSection('timeConstraints')}
+                            className="w-full px-3 py-2.5 flex justify-between items-center hover:bg-gray-50"
+                        >
+                            <span className="text-sm font-medium text-gray-900">Time Constraints</span>
+                            <svg
+                                className={`w-5 h-5 text-gray-500 transition-transform ${
+                                    openSections.has('timeConstraints') ? 'rotate-180' : ''
+                                }`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {openSections.has('timeConstraints') && (
+                            <div className="p-3 space-y-2 bg-gray-50/50">
+                                <div className="p-2 rounded-lg bg-gray-50/80 border border-gray-100">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-medium text-gray-700">
+                                                Maximum daily time
+                                                <span className="ml-1 text-gray-400 hover:text-gray-600 cursor-help" title="The maximum amount of time a vehicle can operate in a single day, including driving time and collection time at each stop.">
+                                                    ⓘ
+                                                </span>
+                                            </label>
+                                            <span className="text-xs text-gray-500" title="Supported units: y (years), d (days), h (hours), m (minutes), s (seconds)">
+                                                Supported format: 8h, 1d, 30m
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={humanMaxDailyTime}
+                                            onChange={(e) => setHumanMaxDailyTime(e.target.value)}
+                                            placeholder="e.g., 8h, 1d, 8h 30m"
+                                            title="Examples: 8h (8 hours), 1d (1 day), 8h 30m (8 hours and 30 minutes). This limits how long each vehicle can work per day."
+                                            className="w-full border border-gray-200 p-1.5 text-sm rounded-lg bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-shadow"
+                                        />
+                                        <div className="text-xs text-gray-500 space-y-1">
+                                            <p>Combine units with spaces: 8h 30m, 1d 4h</p>
+                                            <p>This is the total working time limit for each vehicle per day, including both driving and collection time at stops.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Vehicles Section */}

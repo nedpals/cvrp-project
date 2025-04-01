@@ -10,13 +10,14 @@ class CollectionScheduler:
     """Manages collection schedules based on WCO generation rates and disposal schedules"""
 
     def __init__(self, locations: LocationRegistry, schedules: Iterable[ScheduleEntry], 
-                 vehicles: List[Vehicle], simulation_days: int = 30, speed_kph: float = AVERAGE_SPEED_KPH):
+                 vehicles: List[Vehicle], simulation_days: int = 30, speed_kph: float = AVERAGE_SPEED_KPH, max_daily_time: int = MAX_DAILY_TIME):
         self.locations = locations
         self.vehicles = vehicles
         self.frequency_map = self._build_frequency_map(schedules)
         self.schedule_map = self._build_schedule_map(schedules)  # Store full schedule objects
         self.min_load_ratio = 0.5
         self.speed_kph = speed_kph
+        self.max_daily_time = max_daily_time
         self.MAX_TRAVEL_TIME = 240
         
         # Calculate max simulation days needed based on schedules
@@ -192,15 +193,15 @@ class CollectionScheduler:
                     travel_time = self._estimate_travel_time(distance_km)
                     total_time = current_time + collection_time + travel_time
                     
-                    if total_time > MAX_DAILY_TIME:
-                        print(f"Vehicle {vehicle.id} reached daily time limit: {total_time:.1f} minutes > {MAX_DAILY_TIME} minutes")
+                    if total_time > self.max_daily_time:
+                        print(f"Vehicle {vehicle.id} reached daily time limit: {total_time:.1f} minutes > {self.max_daily_time} minutes")
                         # Go to next vehicle if daily time limit is exceeded
                         continue
                     
                     # Calculate assignment score with higher weight on distance
                     distance_factor = 1.0 / (1 + distance_km)
                     capacity_ratio = location.wco_amount / remaining_capacity
-                    time_ratio = total_time / MAX_DAILY_TIME
+                    time_ratio = total_time / self.max_daily_time
                     traffic_factor = 1.0 / (1 + (travel_time / 60))
 
                     # Adjusted weights to prioritize distance
@@ -236,7 +237,7 @@ class CollectionScheduler:
                 assigned = False
                 for v_idx, vehicle in enumerate(vehicles):
                     if (vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity and
-                        vehicle_times[v_idx] + clusterer.estimate_collection_time(location) <= MAX_DAILY_TIME):
+                        vehicle_times[v_idx] + clusterer.estimate_collection_time(location) <= self.max_daily_time):
                         assignments[v_idx].append(location)
                         vehicle_loads[v_idx] += location.wco_amount
                         vehicle_times[v_idx] += clusterer.estimate_collection_time(location)
@@ -312,7 +313,7 @@ class CollectionScheduler:
         while remaining:
             available_vehicles = [
                 v for v in vehicles 
-                if vehicle_daily_times[v.id] < MAX_DAILY_TIME
+                if vehicle_daily_times[v.id] < self.max_daily_time
             ]
             
             if not available_vehicles:
@@ -321,7 +322,7 @@ class CollectionScheduler:
                 balanced_days[current_day] = []
                 vehicle_daily_times = {v.id: 0.0 for v in vehicles}
                 vehicle_daily_trips = {v.id: 0 for v in vehicles}
-                print(f"Moving to day {current_day} - all vehicles reached daily time limit")
+                print(f"Moving to day {current_day} - all vehicles reached daily time limit ({self.max_daily_time} minutes)")
                 continue
                 
             # Try to assign locations to available vehicles for new trips

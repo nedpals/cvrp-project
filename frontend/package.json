@@ -24,6 +24,7 @@
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
     "react-leaflet": "^5.0.0",
+    "simple-duration": "^1.1.1",
     "swr": "^2.3.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.12",

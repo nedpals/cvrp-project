@@ -10,10 +10,11 @@ class ORToolsSolver(BaseSolver):
     name = "Google OR-Tools Solver"
     description = "Advanced optimization solver using Google's Operations Research tools. Best for complex routing problems."
 
-    def __init__(self, locations: list[Location], vehicles: list[Vehicle], constraints: RouteConstraints, stop_time: int = 15, speed_kph: int = AVERAGE_SPEED_KPH):
+    def __init__(self, locations: list[Location], vehicles: list[Vehicle], constraints: RouteConstraints, stop_time: int = 15, speed_kph: int = AVERAGE_SPEED_KPH, max_daily_time: int = MAX_DAILY_TIME):
         super().__init__(locations, vehicles, constraints)
         self.stop_time = stop_time
         self.speed_kph = speed_kph
+        self.max_daily_time = max_daily_time
 
     def solve(self):
         # Handle edge cases
@@ -101,7 +102,7 @@ class ORToolsSolver(BaseSolver):
         routing.AddDimension(
             time_callback_index,
             60,  # Allow 60 minute slack for breaks
-            MAX_DAILY_TIME * 2,  # Double the max daily time to allow for flexibility
+            self.max_daily_time * 2,  # Double the max daily time to allow for flexibility
             True,  # Force start cumul to zero
             'Time'
         )
@@ -113,10 +114,10 @@ class ORToolsSolver(BaseSolver):
             index = manager.NodeToIndex(location_idx)
             if location_idx == depot_index:
                 # Allow depot visits at any time
-                time_dimension.CumulVar(index).SetRange(0, MAX_DAILY_TIME * 2)
+                time_dimension.CumulVar(index).SetRange(0, self.max_daily_time * 2)
             else:
                 # Give more flexible time windows for locations
-                time_dimension.CumulVar(index).SetRange(0, MAX_DAILY_TIME)
+                time_dimension.CumulVar(index).SetRange(0, self.max_daily_time)
 
         # Add a dimension for capacity
         def demand_callback(from_index):

@@ -64,6 +64,7 @@ export interface SolveConfig {
   vehicles: VehicleConfig[];
   depot_location: [number, number];
   average_speed_kph: number;
+  max_daily_time: number; // in minutes
   constraints: {
     one_way_roads: [number, number][][];
   };

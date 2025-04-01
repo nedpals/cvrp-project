@@ -9,15 +9,17 @@ from scheduling.collection_scheduler import CollectionScheduler
 from utils import calculate_distance
 from datetime import datetime
 from solvers.or_tools_solver import ORToolsSolver
+from utils import MAX_DAILY_TIME
 
 class CVRP:
-    def __init__(self, vehicles: List[Vehicle], solver_class: BaseSolver, constraints: RouteConstraints | None = None, allow_multiple_trips: bool = True):
+    def __init__(self, vehicles: List[Vehicle], solver_class: BaseSolver, constraints: RouteConstraints | None = None, allow_multiple_trips: bool = True, max_daily_time: int = MAX_DAILY_TIME):
         self.vehicles = vehicles
         self.solver_class = solver_class
         self.allow_multiple_trips = allow_multiple_trips
         self.constraints = constraints or RouteConstraints(one_way_roads=[])
         self.max_trips_per_day = 5  # Limit trips per day per vehicle
         self.collection_scheduler = None  # Will be initialized during process
+        self.max_daily_time = max_daily_time  # Max daily time in minutes
 
     def _initialize_location_registry(self, locations: LocationRegistry) -> LocationRegistry:
         """Initialize location registry with depot distances"""
@@ -29,7 +31,7 @@ class CVRP:
         
         return locations
 
-    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]], stop_time = 15, speed_kph = AVERAGE_SPEED_KPH) -> List[List[Location]]:
+    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]], stop_time = 15, speed_kph = AVERAGE_SPEED_KPH, max_daily_time = MAX_DAILY_TIME) -> List[List[Location]]:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
@@ -47,7 +49,8 @@ class CVRP:
                 vehicles=self.vehicles,
                 constraints=self.constraints,
                 speed_kph=speed_kph,
-                stop_time=stop_time
+                stop_time=stop_time,
+                max_daily_time=self.max_daily_time
             )
             vehicle_routes = solver.solve()
             return vehicle_routes
@@ -100,7 +103,8 @@ class CVRP:
             schedules=schedule_entries,
             vehicles=self.vehicles,
             simulation_days=30,
-            speed_kph=speed_kph
+            speed_kph=speed_kph,
+            max_daily_time=self.max_daily_time,
         )
 
         # Process each schedule independently
@@ -224,7 +228,7 @@ class CVRP:
                 print(f"\nTotal missed WCO: {total_missed_wco}L ({(total_missed_wco/sum(loc.wco_amount for loc in schedule_locations)*100):.1f}% of schedule total)")
                 print("\nPossible reasons:")
                 print("1. Vehicle capacity constraints")
-                print(f"2. Time budget constraints ({self.collection_scheduler.MAX_DAILY_TIME/60:.1f}-hour workday)")
+                print(f"2. Time budget constraints ({self.max_daily_time/60:.1f}-hour workday)")
                 print("3. Travel time constraints")
                 print(f"4. Distance from depot (check locations > {self.collection_scheduler.MAX_TRAVEL_TIME/60:.1f} hours away)")
             

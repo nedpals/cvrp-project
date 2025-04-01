@@ -49,6 +49,7 @@ const defaultConfig: ConfigRequest = {
     constraints: {
       one_way_roads: []
     },
+    max_daily_time: 7 * 60, // in minutes
     average_speed_kph: 30.0
   },
   schedules: [],

@@ -209,7 +209,8 @@ class CvrpSystem:
         cvrp = CVRP(
             vehicles=vehicles,
             solver_class=solver_class,
-            constraints=config.settings.constraints
+            constraints=config.settings.constraints,
+            max_daily_time=config.settings.max_daily_time,
         )
 
         try:
