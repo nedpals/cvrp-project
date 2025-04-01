@@ -160,21 +160,19 @@ class ORToolsSolver(BaseSolver):
         try:
             solution = routing.SolveWithParameters(search_parameters)
             if not solution:
-                # If no solution found, use simple TSP for single vehicle
-                if num_vehicles == 1:
-                    return [[None] + sorted(self.locations, key=lambda x: x.distance_from_depot) + [None]]
-                # Fallback for small multi-vehicle problems
-                elif num_locations <= 10:
-                    return [[None] + self.locations + [None]]
+                return self._fallback_simple_tsp(self.locations, num_vehicles)
             return self._process_solution(manager, routing, solution)
         except Exception as e:
             print(f"Error solving route: {e}")
-            if num_vehicles == 1:
-                return [[None] + sorted(self.locations, key=lambda x: x.distance_from_depot) + [None]]
-            # Fallback for very small problems
-            if num_locations <= 5:
-                return [[None] + self.locations + [None]]
-            return []
+            return self._fallback_simple_tsp(self.locations, num_vehicles)
+        
+    def _fallback_simple_tsp(self, locations: List[Location], num_vehicles: int) -> List[List[Location]]:
+        if num_vehicles == 1:
+            # Return a single route for the TSP
+            return [[None] + sorted(locations, key=lambda x: x.distance_from_depot) + [None]]
+        else:
+            # Return multiple routes for small multi-vehicle problems
+            return [[None] + locations + [None]]
 
     def _process_solution(self, manager: RoutingIndexManager, routing: RoutingModel, solution) -> List[List[Location]]:
         """Process OR-Tools solution into list of Location routes"""
