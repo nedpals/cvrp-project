@@ -85,9 +85,11 @@ export default function ConfigForm({
 
         const currentScheduleEntry = schedules.find(s => s.id === currentSchedule);
         const selectedSchedules = currentScheduleEntry ? [currentScheduleEntry] : [];
+        const disposalSchedules = selectedSchedules.map(schedule => schedule.frequency);
 
         onSubmit({
             ...config,
+            locations: locations.filter(location => disposalSchedules.includes(location.disposal_schedule)),
             settings: {
                 ...config.settings,
                 max_daily_time: sd.parse(humanMaxDailyTime) / 60, // convert seconds to minutes
