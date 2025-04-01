@@ -36,7 +36,9 @@ class GeographicClusterer:
         """
         if not locations:
             return []
-
+        
+        # Sort the locations by ID for consistent ordering
+        locations.sort(key=lambda loc: (loc.id.rsplit('_', 1)[0], int(loc.id.rsplit('_', 1)[1])))
         coords = np.array([[loc.coordinates[0], loc.coordinates[1]] for loc in locations])
         
         # Determine maximum possible clusters based on location count

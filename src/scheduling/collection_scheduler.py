@@ -161,7 +161,8 @@ class CollectionScheduler:
                 key=lambda x: (
                     calculate_distance(x.coordinates, vehicles[0].depot_location),  # Primary sort by distance from depot
                     -x.wco_amount,  # Secondary sort by WCO amount
-                    clusterer.estimate_collection_time(x)  # Finally by collection time
+                    clusterer.estimate_collection_time(x),  # Finally by collection time
+                    x.id # Add tie-breaker for similar distances
                 )
             )
             
