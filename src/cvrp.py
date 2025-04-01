@@ -198,7 +198,55 @@ class CVRP:
 
                 if vehicle_assignments:
                     trip_number += 1
-                
+
+                unique_assignment_loc_ids = set(loc.id for locs in vehicle_assignments for loc in locs if loc is not None)
+                unique_assignment_loc_len = len(unique_assignment_loc_ids)
+
+                # Lazy patching: if the initial assignment = len(remaining_locations)
+                # and vehicle assignments lacks 1 location, then add it to the last vehicle
+                # (Add it the index with the nearest depot location)
+                if total_initial_assignments_len != 0 and len(remaining_locations) == total_initial_assignments_len and total_initial_assignments_len - unique_assignment_loc_len == 1:
+                    print(f"Lazy patching: Adding location to vehicle {self.vehicles[-1].id}")
+
+                    # Find the missing location in initial assignments
+                    last_location = None
+
+                    for locs in initial_assignments:
+                        for loc in locs:
+                            if loc is not None and loc.id not in unique_assignment_loc_ids:
+                                last_location = loc
+                                break
+                    
+                    if last_location is not None:
+                        print(f"Found missing location for lazy patching: {last_location.str()}")
+
+                        # Find the vehicle with the nearest depot location
+                        nearest_vehicle_idx = min(
+                            range(len(self.vehicles)),
+                            key=lambda i: calculate_distance(
+                                self.vehicles[i].depot_location,
+                                last_location.coordinates
+                            )
+                        )
+
+                        # Find the index to insert with the nearest depot location
+                        insert_index = min(
+                            range(len(vehicle_assignments[nearest_vehicle_idx])),
+                            key=lambda i: calculate_distance(
+                                vehicle_assignments[nearest_vehicle_idx][i].coordinates if vehicle_assignments[nearest_vehicle_idx][i] is not None else self.vehicles[nearest_vehicle_idx].depot_location,
+                                last_location.coordinates
+                            )
+                        )
+
+                        vehicle_assignments[nearest_vehicle_idx].insert(insert_index, last_location)
+                        print(f"Inserting {last_location.str()} at index {insert_index} for vehicle {self.vehicles[nearest_vehicle_idx].id}")
+
+                        # Verify if the location is already assigned
+                        if remaining_locations == 0:
+                            print("All locations have been assigned.")
+                    else:
+                        print("Huh? No missing location found in initial assignments. Skipping lazy patching.")
+
                 # Register collections
                 for v_idx, assigned_locations in enumerate(vehicle_assignments):
                     if not assigned_locations:

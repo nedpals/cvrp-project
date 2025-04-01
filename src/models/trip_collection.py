@@ -63,7 +63,7 @@ class TripCollection:
         # Register collection with distance
         collection.add_stop(location, distance)
         self.total_stops += 1
-        print(f"Total trips: {self.total_trips}, Total stops: {self.total_stops}")
+        print(f"Collecting {location.str()} (Total trips: {self.total_trips}, Total stops: {self.total_stops})")
         return True
         
     def get_visited_locations(self, vehicle_id: int, day: int) -> Set[str]:
