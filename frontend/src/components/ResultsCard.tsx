@@ -240,7 +240,7 @@ export default function ResultsCard({
     routes.forEach((route, routeDay) => {
       route.vehicle_routes.forEach(vr => {
         vr.stops.forEach(stop => {
-          if (_uniqueTrips.has(stop.trip_number)) return;
+          if (_uniqueTrips.has(routeDay + stop.trip_number)) return;
 
           _trips.push({
             day: routeDay,
