@@ -95,7 +95,7 @@ class ORToolsSolver(BaseSolver):
                 return travel_time + service_time
             except Exception as e:
                 print(f"Error in time_callback: {e}")
-                return self.MAX_STOP_TIME
+                return self.stop_time
 
         time_callback_index = routing.RegisterTransitCallback(time_callback)
         routing.AddDimension(
