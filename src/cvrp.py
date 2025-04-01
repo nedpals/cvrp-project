@@ -216,10 +216,8 @@ class CVRP:
                             if loc is not None and loc.id not in unique_assignment_loc_ids:
                                 last_location = loc
                                 break
-                    
-                    if last_location is not None:
-                        print(f"Found missing location for lazy patching: {last_location.str()}")
 
+                    if last_location is not None:
                         # Find the vehicle with the nearest depot location
                         nearest_vehicle_idx = min(
                             range(len(self.vehicles)),
@@ -228,6 +226,16 @@ class CVRP:
                                 last_location.coordinates
                             )
                         )
+
+                        # Additional check: if the last location exceeds vehicle capacity
+                        total_wco_before_add = sum(loc.wco_amount for locs in vehicle_assignments for loc in locs if loc is not None)
+                        if total_wco_before_add + last_location.wco_amount > self.vehicles[nearest_vehicle_idx].capacity:
+                            print(f"Warning: Adding location {last_location.str()} exceeds vehicle capacity. Skipping lazy patching.")
+                            # Mark the last location as None
+                            last_location = None
+
+                    if last_location is not None:
+                        print(f"Found missing location for lazy patching: {last_location.str()}")
 
                         # Find the index to insert with the nearest depot location
                         insert_index = min(
