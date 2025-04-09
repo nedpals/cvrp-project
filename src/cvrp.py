@@ -18,7 +18,6 @@ class CVRP:
         self.solver_class = solver_class
         self.allow_multiple_trips = allow_multiple_trips
         self.constraints = constraints or RouteConstraints(one_way_roads=[])
-        self.max_trips_per_day = 5  # Limit trips per day per vehicle
         self.collection_scheduler = None  # Will be initialized during process
         self.max_daily_time = max_daily_time  # Max daily time in minutes
 
