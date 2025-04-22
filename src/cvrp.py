@@ -419,15 +419,6 @@ class CVRP:
                         trip_vehicles[trip_num][vehicle_idx] = vehicle_routes
                     else:
                         trip_vehicles[trip_num].append(vehicle_route)
-                    
-                    # Update day totals
-                    day_total_distance += vehicle_route.total_distance
-                    day_total_collected += vehicle_route.total_collected
-                    day_total_collection_time += vehicle_route.total_collection_time
-                    day_total_travel_time += vehicle_route.total_travel_time
-                    day_total_locations += len(vehicle_route.stops)
-                    day_total_stops += vehicle_route.total_stops
-                    day_total_trips += vehicle_route.total_trips
 
             # Create TripAnalysisResult for each trip
             for trip_num, vehicle_routes in trip_vehicles.items():
@@ -444,6 +435,14 @@ class CVRP:
                 )
                 trip_results.append(trip_result)
 
+            day_total_distance = sum(trip.total_distance for trip in trip_results)
+            day_total_collected = sum(trip.total_collected for trip in trip_results)
+            day_total_collection_time = sum(trip.total_collection_time for trip in trip_results)
+            day_total_travel_time = sum(trip.total_travel_time for trip in trip_results)
+            day_total_locations = sum(trip.total_locations for trip in trip_results)
+            day_total_stops = sum(trip.total_stops for trip in trip_results)
+            day_total_trips = len(trip_results)
+
             # Create RouteAnalysisResult for the day
             day_result = RouteAnalysisResult(
                 schedule_id=f"{schedule_id}_day{day}",
@@ -453,6 +452,8 @@ class CVRP:
                 total_vehicles=len(self.vehicles),
                 total_distance=day_total_distance,
                 total_collected=day_total_collected,
+                total_collection_time=day_total_collection_time,
+                total_travel_time=day_total_travel_time,
                 total_trips=day_total_trips,
                 total_stops=day_total_stops,
                 collection_day=day,
@@ -460,21 +461,15 @@ class CVRP:
                 base_schedule_id=schedule_id,
                 base_schedule_day=base_day
             )
+
             results.append(day_result)
 
         return results
 
     def _process_vehicle_route(self, vehicle: Vehicle, route: VehicleRoute, day: int, trip_number: int, locations: LocationRegistry) -> VehicleRouteInfo:
         """Helper method to process vehicle route info."""
-        stops_data = []
-        vehicle_collected = 0
-        vehicle_collection_time = 0
-        vehicle_travel_time = 0
-
+        stops_data: list[StopInfo] = []
         should_add_depot_start = True
-
-        total_stops = 0
-        total_distance = 0
 
         # Process regular stops
         for i, stop in enumerate(route.stops):
@@ -521,14 +516,12 @@ class CVRP:
                 collection_time=stop.collection_time,
                 travel_time=stop.travel_time
             )
+
             stops_data.append(stop_info)
-            vehicle_collected += stop.amount_collected
-            vehicle_collection_time += stop.collection_time
-            vehicle_travel_time += stop.travel_time
-            total_distance += stop.distance_from_prev
-            total_stops += 1
 
             if (i + 1 < len(route.stops) and stop.trip_number != route.stops[i + 1].trip_number) or i == len(route.stops) - 1:
+                depot_end_distance = calculate_distance(stop.coordinates, vehicle.depot_location)
+
                 # Add depot end stop between trips
                 depot_end = StopInfo(
                     name="Depot",
@@ -539,17 +532,22 @@ class CVRP:
                     cumulative_load=stop.cumulative_load,
                     remaining_capacity=remaining_capacity,
                     distance_from_depot=0,
-                    distance_from_prev=calculate_distance(stop.coordinates, vehicle.depot_location),
+                    distance_from_prev=depot_end_distance,
                     vehicle_capacity=vehicle.capacity,
                     sequence_number=i,
                     collection_day=day,
                     collection_time=0,
-                    travel_time=0
+                    travel_time=int((depot_end_distance / route.speed_kph) * 3600)
                 )
-                total_distance += stop.distance_from_prev
-                vehicle_travel_time += int((depot_end.distance_from_prev / route.speed_kph) * 3600)
+
                 stops_data.append(depot_end)
                 should_add_depot_start = True
+
+        vehicle_collected = sum(stop.wco_amount for stop in stops_data)
+        vehicle_collection_time = sum(stop.collection_time for stop in stops_data)
+        vehicle_travel_time = sum(stop.travel_time for stop in stops_data)
+        total_stops = len(stops_data)
+        total_distance = sum(stop.distance_from_prev for stop in stops_data)
 
         vehicle_route = VehicleRouteInfo(
             vehicle_id=vehicle.id,
