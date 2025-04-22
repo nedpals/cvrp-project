@@ -1,7 +1,7 @@
 import { getActiveTripFromRouteInfo, RouteResponse, StopInfo } from '../types/models';
 import { useFilterStore } from '../stores/filterStore';
 import { useConfigStore } from '../stores/configStore';
-import { cn } from '../utils/utils';
+import { cn, formatDuration } from '../utils/utils';
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 
@@ -106,32 +106,17 @@ function ResultsCardContainer({ children }: {
   );
 }
 
-const formatDuration = (seconds: number) => {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-};
-
 const exportToExcel = (routes: RouteResponse[]) => {
   const workbook = XLSX.utils.book_new();
   const { config: { settings: { depot_location: [depotLat, depotLng] } } } = useConfigStore.getState();
 
-  // Enhanced summary sheet with WCO total
+  // Get totals across all routes
   const totalStops = routes.reduce((total, route) => total + route.total_stops, 0);
-
-  const totalWco = routes.reduce((total, route) =>
-    total + route.vehicle_routes.reduce((total, vr) =>
-      total + vr.stops.reduce((stopTotal, stop) => stopTotal + stop.wco_amount, 0), 0
-    ), 0
-  );
-
   const totalDistance = routes.reduce((total, route) => total + route.total_distance, 0);
   const totalTravelTime = routes.reduce((total, route) => total + route.total_travel_time, 0);
   const totalCollectionTime = routes.reduce((total, route) => total + route.total_collection_time, 0);
   const totalVehicles = routes[0].total_vehicles || 0;
+  const totalWco = routes.reduce((total, route) => total + route.total_collected, 0);
   
   const summaryData = [
     ['Total Stops', totalStops],
@@ -140,24 +125,17 @@ const exportToExcel = (routes: RouteResponse[]) => {
     ['Total Vehicles', totalVehicles],
     ['Total WCO Collected (L)', totalWco.toFixed(1)],
   ];
-  
 
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
   XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
+  // Export each trip for each day
   routes.forEach((route, idx) => {
-    // Get all unique trips
-    const trips = new Set<number>();
-    route.vehicle_routes.forEach(vr => {
-      vr.stops.forEach(stop => trips.add(stop.trip_number));
-    });
-
-    // Create a sheet for each trip
-    Array.from(trips).sort((a, b) => a - b).forEach(tripNumber => {
+    route.trips.forEach((trip, tripNumber) => {
       const tripData = [['Vehicle ID', 'Stop Number', 'Location Name', 'Collection Amount (L)', 'Trip Number', 'Latitude', 'Longitude']];
       
-      route.vehicle_routes.forEach(vr => {
-        // Add depot start for each vehicle
+      trip.vehicle_routes.forEach(vr => {
+        // Add depot start
         tripData.push([
           vr.vehicle_id, 
           '0', 
@@ -168,9 +146,9 @@ const exportToExcel = (routes: RouteResponse[]) => {
           JSON.stringify(depotLng)
         ]);
         
-        // Add stops for this trip
+        // Add stops
         vr.stops
-          .filter(stop => stop.trip_number === tripNumber)
+          .filter(stop => !stop.location_id.includes('depot_'))
           .forEach(stop => {
             tripData.push([
               vr.vehicle_id,
@@ -183,12 +161,12 @@ const exportToExcel = (routes: RouteResponse[]) => {
             ]);
           });
         
-        // Add depot end for each vehicle
+        // Add depot end
         tripData.push([
           vr.vehicle_id, 
           '-', 
           'Depot (End)', 
-          JSON.stringify(vr.stops.reduce((total, stop) => total + stop.wco_amount, 0)),
+          vr.total_collected.toString(),
           tripNumber.toString(),
           JSON.stringify(depotLat),
           JSON.stringify(depotLng)
@@ -237,18 +215,16 @@ export default function ResultsCard({
     const _trips: { day: number, trip_number: number, formatted_trip_number: number }[] = [];
     let lastTripNumber = 0;
 
-    // Assume that routes is a multi-day route of the same schedule
     routes.forEach((route, routeDay) => {
-      route.vehicle_routes.forEach(vr => {
-        vr.stops.forEach(stop => {
-          if (_uniqueTrips[routeDay]?.[stop.trip_number]) {
-            console.log('Trip already exists:', routeDay, stop.trip_number, stop.name);
+        route.trips.forEach(trip => {
+            if (_uniqueTrips[routeDay]?.[trip.collection_day]) {
+                console.log('Trip already exists:', routeDay, trip.collection_day);
             return;
           }
 
           _trips.push({
             day: routeDay,
-            trip_number: stop.trip_number,
+                trip_number: trip.collection_day,
             formatted_trip_number: lastTripNumber + 1
           });
 
@@ -256,11 +232,8 @@ export default function ResultsCard({
             _uniqueTrips[routeDay] = {};
           }
 
-          _uniqueTrips[routeDay][stop.trip_number] = true;
-
-          // Increment last trip number if it's the last stop of the day
+            _uniqueTrips[routeDay][trip.collection_day] = true;
           lastTripNumber++;
-        });
       });
     });
 
@@ -282,7 +255,7 @@ export default function ResultsCard({
       totalDistance += route.total_distance;
       totalTravelTime += route.total_travel_time;
       totalCollectionTime += route.total_collection_time;
-      totalVehicles += route.total_vehicles;
+      totalVehicles = Math.max(totalVehicles, route.total_vehicles);
       totalWco += route.total_collected;
     });
 
@@ -455,23 +428,24 @@ export default function ResultsCard({
       {showTripControls && (
         <div className="px-3 py-2.5 border-b border-gray-100 bg-white sticky top-0 z-10">
           <div className="flex gap-1.5 flex-wrap items-center">
-            {trips.map(({ day, trip_number, formatted_trip_number }) => (
-              <button
-                key={`trip_${day}_${trip_number}_${formatted_trip_number}`}
-                onClick={() => {
-                  console.log('Trip button clicked:', day, trip_number);
-                  setActiveTrip(getActiveTripFromRouteInfo(routes[day], trip_number));
-                }}
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                  activeTrip && activeTrip.day === day && activeTrip.trip_number === trip_number
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
-                )}
-              >
-                Trip {formatted_trip_number}
-              </button>
-            ))}
+            {routes.map((route, dayIndex) => 
+              route.trips.map((_, tripNumber) => (
+                <button
+                  key={`trip_${dayIndex}_${tripNumber + 1}`}
+                  onClick={() => setActiveTrip(getActiveTripFromRouteInfo(route, tripNumber + 1))}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                      activeTrip && 
+                      activeTrip.day === route.collection_day && 
+                      activeTrip.trip_number === tripNumber + 1
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
+                  )}
+                >
+                    Trip {tripNumber + 1}
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -514,7 +488,7 @@ export default function ResultsCard({
                   <div className="pb-2">
                     <div className="bg-blue-50/50 px-3 py-2 rounded-lg border border-blue-100">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-blue-600">Trip {activeTrip.trip_number + activeTrip.day} Collection</span>
+                        <span className="text-[11px] text-blue-600">Trip {activeTrip.trip_number} Collection</span>
                         <span className="font-semibold text-blue-900 text-base">
                           {currentTripStats.wcoTotal.toFixed(1)}L
                         </span>

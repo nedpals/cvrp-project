@@ -3,6 +3,7 @@ import openrouteservice as ors
 from openrouteservice.directions import directions
 from typing import List, Tuple, Dict, Any
 from models.route_data import RouteAnalysisResult, RoutePathInfo, StopInfo, VehicleRouteInfo
+from models.shared_models import TripAnalysisResult
 import os
 from folium import plugins
 from utils import calculate_distance
@@ -78,63 +79,35 @@ class RouteVisualizer:
                 Total Collected: {analysis.total_collected:.2f}L
             </div>
         """).add_to(self.map)
-        
-        # Add route legend as a custom div
-        folium.Element(f"""
-            <div id="legend-{analysis.schedule_id}" 
-                 style="position: fixed; bottom: 50px; right: 20px; 
-                        background: white; padding: 10px; border: 2px solid #666; 
-                        border-radius: 5px; z-index: 1000;">
-                <h4 style="margin: 0 0 10px 0;">Day {analysis.collection_day}</h4>
-                <div style="font-size: 12px;">
-                    <b>Schedule:</b> {analysis.schedule_name}<br>
-                    <b>Locations:</b> {analysis.total_locations}<br>
-                    <b>Total WCO:</b> {analysis.total_collected:.2f}L<br>
-                    <b>Distance:</b> {analysis.total_distance:.2f} km
-                </div>
-            </div>
-        """).add_to(self.map)
 
-        for vehicle_route_idx, route_info in enumerate(analysis.vehicle_routes):
-            color = self.colors[vehicle_route_idx % len(self.colors)]
-            stops = route_info.stops
-            
-            # Create combined route paths
-            combined_paths: List[RoutePathInfo] = []
-            trip_paths: Dict[int, List[RoutePathInfo]] = {}
-            
-            # Group stops by trip
-            trip_stops: Dict[int, List[StopInfo]] = {}
-            for stop in stops:
-                if stop.trip_number not in trip_stops:
-                    trip_stops[stop.trip_number] = []
-                trip_stops[stop.trip_number].append(stop)
-            
-            # Process each trip separately
-            for trip_number, trip_stop_list in trip_stops.items():
-                trip_paths[trip_number] = []
+        # Process each trip
+        for trip in analysis.trips:
+            # Process vehicle routes for this trip
+            for vehicle_route_idx, route_info in enumerate(trip.vehicle_routes):
+                color = self.colors[vehicle_route_idx % len(self.colors)]
+                stops = route_info.stops
                 
-                # Add depot markers
+                if not stops:
+                    continue
+
+                # Add depot markers and route visualization for each vehicle in the trip
                 self._add_trip_depot_markers(
-                    route_info, trip_number, color, 
-                    trip_stop_list[0].coordinates if trip_stop_list else self.center
+                    route_info, trip.collection_day, color, 
+                    stops[0].coordinates if stops else self.center
                 )
                 
                 # Add route paths and stop markers
-                trip_paths[trip_number] = self._add_trip_route(
-                    trip_number, trip_stop_list, route_info, color
+                trip_paths = self._add_trip_route(
+                    trip.collection_day, stops, route_info, color
                 )
-                combined_paths.extend(trip_paths[trip_number])
-            
-            # Store paths in route info
-            route_info.trip_paths = trip_paths
-            
-            # Store computed paths for this analysis
-            if analysis.schedule_id not in self.computed_paths:
-                self.computed_paths[analysis.schedule_id] = {}
-            self.computed_paths[analysis.schedule_id][route_info.vehicle_id] = [
-                self._convert_path_to_dict(path) for path in combined_paths
-            ]
+                
+                # Store paths in route info
+                route_info.trip_paths[trip.collection_day] = trip_paths
+                
+                # Store computed paths for this analysis
+                if analysis.schedule_id not in self.computed_paths:
+                    self.computed_paths[analysis.schedule_id] = {}
+                self.computed_paths[analysis.schedule_id][route_info.vehicle_id] = trip_paths
 
         # Fit bounds to show all markers
         self._fit_bounds_to_markers(analysis)
@@ -294,17 +267,17 @@ class RouteVisualizer:
 
     def _fit_bounds_to_markers(self, analysis: RouteAnalysisResult):
         """Fit map bounds to show all markers."""
-        if analysis.vehicle_routes:
-            all_coords = []
-            for route in analysis.vehicle_routes:
+        all_coords = []
+        for trip in analysis.trips:
+            for route in trip.vehicle_routes:
                 all_coords.extend(stop.coordinates for stop in route.stops)
                 all_coords.append(self.center)  # Include depot
-            
-            if all_coords:
-                self.map.fit_bounds([
-                    [min(lat for lat, _ in all_coords), min(lon for _, lon in all_coords)],
-                    [max(lat for lat, _ in all_coords), max(lon for _, lon in all_coords)]
-                ])
+
+        if all_coords:
+            self.map.fit_bounds([
+                [min(lat for lat, _ in all_coords), min(lon for _, lon in all_coords)],
+                [max(lat for lat, _ in all_coords), max(lon for _, lon in all_coords)]
+            ])
 
     def save(self, filename: str, analysis: RouteAnalysisResult):
         """Save the map and route data in multiple formats."""
@@ -322,30 +295,25 @@ class RouteVisualizer:
     def _save_text_summary(self, filename: str, analysis: RouteAnalysisResult):
         """Save route summary in plain text format with aggregated statistics."""
         with open(filename, 'w', encoding='utf-8') as f:
-            for schedule_id, vehicle_routes in self.computed_paths.items():
-                # Initialize counters
+            for trip in analysis.trips:
+                # Initialize counters for this trip
                 total_trips = set()
                 total_stops = 0
                 total_distance = 0.0
                 total_collected = 0.0
 
                 # Calculate totals from vehicle routes
-                for route_info in analysis.vehicle_routes:
-                    # Add all trip numbers to set
-                    total_trips.update(stop.trip_number for stop in route_info.stops)
-                    # Count stops
+                for route_info in trip.vehicle_routes:
+                    total_trips.add(trip.collection_day)
                     total_stops += len(route_info.stops)
-                    # Sum up distance
                     total_distance += route_info.total_distance
-                    # Sum up collected WCO
                     total_collected += sum(stop.wco_amount for stop in route_info.stops)
 
-                # Write summary in requested format
-                f.write(f"Schedule: {schedule_id}\n")
-                f.write(f"Total Trips: {len(total_trips)}\n")
+                # Write trip summary
+                f.write(f"Trip {trip.collection_day}\n")
                 f.write(f"Total Stops: {total_stops}\n")
                 f.write(f"Total Distance: {total_distance:.2f} km\n")
-                f.write(f"Total Collected: {total_collected:.2f} L\n")
+                f.write(f"Total Collected: {total_collected:.2f} L\n\n")
 
     def _save_json_summary(self, filename: str):
         """Save route summary in JSON format."""
@@ -368,7 +336,42 @@ class RouteVisualizer:
         
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2)
-        
+
+    def _create_trip_legend(self, analysis: RouteAnalysisResult):
+        """Create enhanced trip-based legend."""
+        legend_html = f"""
+            <div id="legend-{analysis.schedule_id}" 
+                 style="position: fixed; bottom: 50px; right: 20px; 
+                        background: white; padding: 10px; border: 2px solid #666; 
+                        border-radius: 5px; z-index: 1000;">
+                <h4 style="margin: 0 0 10px 0;">Day {analysis.collection_day}</h4>
+                <div style="font-size: 12px;">
+                    <b>Schedule:</b> {analysis.schedule_name}<br>
+                    <b>Total Trips:</b> {len(analysis.trips)}<br>
+                    <b>Total Locations:</b> {analysis.total_locations}<br>
+                    <b>Total WCO:</b> {analysis.total_collected:.2f}L<br>
+                    <b>Distance:</b> {analysis.total_distance:.2f} km
+                </div>
+                <div style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 10px;">
+                    <b>Trip Details:</b><br>
+                    {self._create_trip_details_html(analysis.trips)}
+                </div>
+            </div>
+        """
+        folium.Element(legend_html).add_to(self.map)
+
+    def _create_trip_details_html(self, trips: List[TripAnalysisResult]) -> str:
+        """Create HTML for detailed trip information."""
+        details = []
+        for trip in trips:
+            vehicles = len(trip.vehicle_routes)
+            stops = sum(len(vr.stops) for vr in trip.vehicle_routes)
+            details.append(
+                f"Trip {trip.collection_day}: {vehicles} vehicles, {stops} stops, "
+                f"{trip.total_collected:.1f}L collected"
+            )
+        return '<br>'.join(details)
+
     def get_computed_paths(self) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """Return the computed road paths for all routes."""
         return self.computed_paths

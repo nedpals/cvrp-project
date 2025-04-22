@@ -16,15 +16,17 @@ export const findStopAndVehicleInfo = (
     let vehicleIndex = -1;
     
     routes.forEach(route => {
-        route.vehicle_routes.forEach((vr, idx) => {
-            vr.stops.forEach(stop => {
-                if (stop.name === loc.name || 
-                    (stop.coordinates[0] === loc.coordinates[0] && 
-                     stop.coordinates[1] === loc.coordinates[1])) {
-                    stopInfo = stop;
-                    vehicleInfo = vr;
-                    vehicleIndex = idx;
-                }
+        route.trips.forEach(trip => {
+            trip.vehicle_routes.forEach((vr, idx) => {
+                vr.stops.forEach(stop => {
+                    if (stop.name === loc.name || 
+                        (stop.coordinates[0] === loc.coordinates[0] && 
+                         stop.coordinates[1] === loc.coordinates[1])) {
+                        stopInfo = stop;
+                        vehicleInfo = vr;
+                        vehicleIndex = idx;
+                    }
+                });
             });
         });
     });

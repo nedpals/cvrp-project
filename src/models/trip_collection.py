@@ -93,5 +93,6 @@ class TripCollection:
             stops=stops,
             total_distance=total_distance,
             initial_capacity=0.0,  # Will be set elsewhere
-            total_collected=sum(stop.amount_collected for stop in stops)
+            total_collected=sum(stop.amount_collected for stop in stops),
+            speed_kph=self.speed_kph
         )

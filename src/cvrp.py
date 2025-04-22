@@ -1,6 +1,6 @@
-from typing import List, Set, Tuple, Iterable
-from models.location import Vehicle, RouteConstraints
-from models.shared_models import ScheduleEntry, Location, AVERAGE_SPEED_KPH
+from typing import List, Set, Tuple, Iterable, Dict
+from models.location import Vehicle, RouteConstraints, VehicleRoute
+from models.shared_models import ScheduleEntry, Location, AVERAGE_SPEED_KPH, TripAnalysisResult
 from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
 from models.route_data import RouteAnalysisResult, VehicleRouteInfo, StopInfo
@@ -386,141 +386,187 @@ class CVRP:
         
         # Generate analysis for each day
         for day in schedule_days:
-            vehicle_routes: list[VehicleRouteInfo] = []
-            total_distance = 0
-            total_collected = 0
-            total_collection_time = 0
-            total_travel_time = 0
-            total_locations = 0
+            trip_results: List[TripAnalysisResult] = []
+            day_total_distance = 0
+            day_total_collected = 0
+            day_total_collection_time = 0
+            day_total_travel_time = 0
+            day_total_locations = 0
+            day_total_stops = 0
+            day_total_trips = 0
 
-            for vehicle in self.vehicles:
+            # Group vehicles by trip number
+            trip_vehicles: Dict[int, List[VehicleRouteInfo]] = {}
+
+            # Initialize trip_vehicles            
+            for vehicle_idx, vehicle in enumerate(self.vehicles):
+                print(f"\nProcessing vehicle {vehicle.id} for day {day}")
                 route = collection_tracker.get_vehicle_route(vehicle.id, day)
                 if not route.stops:
                     continue
 
-                stops_data = []
-                vehicle_collected = 0
-                vehicle_collection_time = 0
-                vehicle_travel_time = 0
+                print(f"There are {len(route.stops)} stops for vehicle {vehicle.id} on day {day}")
+                for stop in route.stops:
+                    trip_num = stop.trip_number
+                    if trip_num not in trip_vehicles:
+                        trip_vehicles[trip_num] = []
 
-                should_add_depot_start = True
-
-                # Process regular stops
-                total_locations += len(route.stops)
-                for i, stop in enumerate(route.stops):
-                    if should_add_depot_start:
-                        # Add depot start stop for each trip
-                        depot_start = StopInfo(
-                            name="Depot",
-                            location_id=f"depot_start_{vehicle.id}_trip_{stop.trip_number}",
-                            coordinates=vehicle.depot_location,
-                            wco_amount=0,
-                            trip_number=stop.trip_number,
-                            cumulative_load=0,
-                            remaining_capacity=vehicle.capacity,
-                            distance_from_depot=0,
-                            distance_from_prev=0,
-                            vehicle_capacity=vehicle.capacity,
-                            sequence_number=i-1,
-                            collection_day=day,
-                            collection_time=0,
-                            travel_time=0
-                        )
-                        stops_data.append(depot_start)
-                        should_add_depot_start = False
-
-                    location_data = locations.get_by_id(stop.location_id)
-                    remaining_capacity = vehicle.capacity - stop.cumulative_load
+                for trip_num in trip_vehicles.keys():
+                    # Process vehicle route info as before
+                    vehicle_route = self._process_vehicle_route(vehicle, route, day, trip_num, locations)
                     
-                    stop_info = StopInfo(
-                        name=stop.location_name,
-                        location_id=stop.location_id,
-                        coordinates=stop.coordinates,
-                        wco_amount=stop.amount_collected,
-                        trip_number=stop.trip_number,
-                        cumulative_load=stop.cumulative_load,
-                        remaining_capacity=remaining_capacity,
-                        distance_from_depot=location_data.distance_from_depot,
-                        distance_from_prev=stop.distance_from_prev,
-                        vehicle_capacity=vehicle.capacity,
-                        sequence_number=i,
-                        collection_day=day,
-                        collection_time=stop.collection_time,
-                        travel_time=stop.travel_time
-                    )
-                    stops_data.append(stop_info)
-                    vehicle_collected += stop.amount_collected
-                    vehicle_collection_time += stop.collection_time
-                    vehicle_travel_time += stop.travel_time
+                    if 0 <= vehicle_idx < len(trip_vehicles[trip_num]):
+                        trip_vehicles[trip_num][vehicle_idx] = vehicle_routes
+                    else:
+                        trip_vehicles[trip_num].append(vehicle_route)
+                    
+                    # Update day totals
+                    day_total_distance += vehicle_route.total_distance
+                    day_total_collected += vehicle_route.total_collected
+                    day_total_collection_time += vehicle_route.total_collection_time
+                    day_total_travel_time += vehicle_route.total_travel_time
+                    day_total_locations += len(vehicle_route.stops)
+                    day_total_stops += vehicle_route.total_stops
+                    day_total_trips += vehicle_route.total_trips
 
-                    if (i + 1 < len(route.stops) and stop.trip_number != route.stops[i + 1].trip_number) or i == len(route.stops) - 1:
-                        # Add depot end stop between trips
-                        depot_end = StopInfo(
-                            name="Depot",
-                            location_id=f"depot_end_{vehicle.id}_trip_{stop.trip_number}",
-                            coordinates=vehicle.depot_location,
-                            wco_amount=0,
-                            trip_number=stop.trip_number,
-                            cumulative_load=stop.cumulative_load,
-                            remaining_capacity=remaining_capacity,
-                            distance_from_depot=0,
-                            distance_from_prev=calculate_distance(stop.coordinates, vehicle.depot_location),
-                            vehicle_capacity=vehicle.capacity,
-                            sequence_number=i,
-                            collection_day=day,
-                            collection_time=0,
-                            travel_time=0
-                        )
-                        stops_data.append(depot_end)
-                        should_add_depot_start = True
-
-                vehicle_route = VehicleRouteInfo(
-                    vehicle_id=vehicle.id,
-                    capacity=vehicle.capacity,
-                    total_stops=len(route.stops),
-                    total_trips=max(stop.trip_number for stop in route.stops) if route.stops else 1,
-                    total_distance=route.total_distance,
-                    total_collected=vehicle_collected,
-                    efficiency=vehicle_collected / vehicle.capacity if vehicle.capacity > 0 else 0,
-                    stops=stops_data,
-                    collection_day=day,  # Add collection day
-                    road_paths=[],  # Road paths will be added later by the visualizer
-                    total_collection_time=vehicle_collection_time,
-                    total_travel_time=vehicle_travel_time,
+            # Create TripAnalysisResult for each trip
+            for trip_num, vehicle_routes in trip_vehicles.items():
+                trip_result = TripAnalysisResult(
+                    collection_day=trip_num,
+                    total_locations=sum(len(vr.stops) for vr in vehicle_routes),
+                    total_vehicles=len(vehicle_routes),
+                    total_distance=sum(vr.total_distance for vr in vehicle_routes),
+                    total_collected=sum(vr.total_collected for vr in vehicle_routes),
+                    total_collection_time=sum(vr.total_collection_time for vr in vehicle_routes),
+                    total_travel_time=sum(vr.total_travel_time for vr in vehicle_routes),
+                    total_stops=sum(vr.total_stops for vr in vehicle_routes),
+                    vehicle_routes=vehicle_routes
                 )
+                trip_results.append(trip_result)
 
-                vehicle_routes.append(vehicle_route)
-                total_distance += route.total_distance
-                total_collected += vehicle_collected
-                total_collection_time += vehicle_collection_time
-                total_travel_time += vehicle_travel_time
-
-            # Calculate totals across all vehicles
-            total_trips = sum(route.total_trips for route in vehicle_routes)
-            total_stops = sum(route.total_stops for route in vehicle_routes)  # Regular stops
-            total_depot_stops = (2 * len(vehicle_routes)) * total_trips  # Depot start and end stops
-            total_stops_with_depot = total_stops + total_depot_stops
-            
+            # Create RouteAnalysisResult for the day
             day_result = RouteAnalysisResult(
-                schedule_id=f"{schedule_id}_day{day}",  # Unique ID for each day
-                schedule_name=f"{schedule_name} (Day {day})",  # Add day to name
+                schedule_id=f"{schedule_id}_day{day}",
+                schedule_name=f"{schedule_name} (Day {day})",
                 date_generated=datetime.now(),
-                total_locations=total_locations,
+                total_locations=day_total_locations,
                 total_vehicles=len(self.vehicles),
-                total_distance=total_distance,
-                total_collected=total_collected,
-                total_trips=total_trips,
-                total_stops=total_stops_with_depot,  # Now includes depot stops
+                total_distance=day_total_distance,
+                total_collected=day_total_collected,
+                total_trips=day_total_trips,
+                total_stops=day_total_stops,
                 collection_day=day,
-                vehicle_routes=vehicle_routes,
-                base_schedule_id=schedule_id,  # Add reference to original schedule
-                base_schedule_day=base_day,     # Add reference to base frequency day
-                total_collection_time=total_collection_time,
-                total_travel_time=total_travel_time,
+                trips=trip_results,
+                base_schedule_id=schedule_id,
+                base_schedule_day=base_day
             )
             results.append(day_result)
-        
+
         return results
+
+    def _process_vehicle_route(self, vehicle: Vehicle, route: VehicleRoute, day: int, trip_number: int, locations: LocationRegistry) -> VehicleRouteInfo:
+        """Helper method to process vehicle route info."""
+        stops_data = []
+        vehicle_collected = 0
+        vehicle_collection_time = 0
+        vehicle_travel_time = 0
+
+        should_add_depot_start = True
+
+        total_stops = 0
+        total_distance = 0
+
+        # Process regular stops
+        for i, stop in enumerate(route.stops):
+            if stop.trip_number != trip_number:
+                continue
+
+            if should_add_depot_start:
+                # Add depot start stop for each trip
+                depot_start = StopInfo(
+                    name="Depot",
+                    location_id=f"depot_start_{vehicle.id}_trip_{stop.trip_number}",
+                    coordinates=vehicle.depot_location,
+                    wco_amount=0,
+                    trip_number=stop.trip_number,
+                    cumulative_load=0,
+                    remaining_capacity=vehicle.capacity,
+                    distance_from_depot=0,
+                    distance_from_prev=0,
+                    vehicle_capacity=vehicle.capacity,
+                    sequence_number=i-1,
+                    collection_day=day,
+                    collection_time=0,
+                    travel_time=0
+                )
+                stops_data.append(depot_start)
+                should_add_depot_start = False
+
+            location_data = locations.get_by_id(stop.location_id)
+            remaining_capacity = vehicle.capacity - stop.cumulative_load
+            
+            stop_info = StopInfo(
+                name=stop.location_name,
+                location_id=stop.location_id,
+                coordinates=stop.coordinates,
+                wco_amount=stop.amount_collected,
+                trip_number=stop.trip_number,
+                cumulative_load=stop.cumulative_load,
+                remaining_capacity=remaining_capacity,
+                distance_from_depot=location_data.distance_from_depot,
+                distance_from_prev=stop.distance_from_prev,
+                vehicle_capacity=vehicle.capacity,
+                sequence_number=i,
+                collection_day=day,
+                collection_time=stop.collection_time,
+                travel_time=stop.travel_time
+            )
+            stops_data.append(stop_info)
+            vehicle_collected += stop.amount_collected
+            vehicle_collection_time += stop.collection_time
+            vehicle_travel_time += stop.travel_time
+            total_distance += stop.distance_from_prev
+            total_stops += 1
+
+            if (i + 1 < len(route.stops) and stop.trip_number != route.stops[i + 1].trip_number) or i == len(route.stops) - 1:
+                # Add depot end stop between trips
+                depot_end = StopInfo(
+                    name="Depot",
+                    location_id=f"depot_end_{vehicle.id}_trip_{stop.trip_number}",
+                    coordinates=vehicle.depot_location,
+                    wco_amount=0,
+                    trip_number=stop.trip_number,
+                    cumulative_load=stop.cumulative_load,
+                    remaining_capacity=remaining_capacity,
+                    distance_from_depot=0,
+                    distance_from_prev=calculate_distance(stop.coordinates, vehicle.depot_location),
+                    vehicle_capacity=vehicle.capacity,
+                    sequence_number=i,
+                    collection_day=day,
+                    collection_time=0,
+                    travel_time=0
+                )
+                total_distance += stop.distance_from_prev
+                vehicle_travel_time += int((depot_end.distance_from_prev / route.speed_kph) * 3600)
+                stops_data.append(depot_end)
+                should_add_depot_start = True
+
+        vehicle_route = VehicleRouteInfo(
+            vehicle_id=vehicle.id,
+            capacity=vehicle.capacity,
+            total_stops=total_stops,
+            total_trips=1,
+            total_distance=total_distance,
+            total_collected=vehicle_collected,
+            efficiency=vehicle_collected / vehicle.capacity if vehicle.capacity > 0 else 0,
+            stops=stops_data,
+            collection_day=day,  # Add collection day
+            road_paths=[],  # Road paths will be added later by the visualizer
+            total_collection_time=vehicle_collection_time,
+            total_travel_time=vehicle_travel_time,
+        )
+
+        return vehicle_route
 
     def print_daily_summaries(self, collection_tracker: TripCollection):
         """Print summaries of daily routes and vehicle utilization"""

@@ -15,11 +15,14 @@ export const useFilterStore = create<FilterState>((set) => ({
   setActiveVehicles: (vehicles) => set({ activeVehicles: vehicles }),
   setActiveTrip: (trip) => set({ activeTrip: trip }),
   initializeFilters: (route) => {
+    if (route.trips.length === 0) return;
+    
     const vehicles = new Set<string>();
+    const firstTrip = route.trips[0];
     
     // If there's only one vehicle, always add it
-    if (route.vehicle_routes.length === 1) {
-      vehicles.add(route.vehicle_routes[0].vehicle_id);
+    if (firstTrip.vehicle_routes.length === 1) {
+      vehicles.add(firstTrip.vehicle_routes[0].vehicle_id);
     }
     
     set({ 

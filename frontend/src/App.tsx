@@ -114,8 +114,9 @@ function App() {
   useEffect(() => {
     if (routes) {
       const currentRoute = routes[0];
-      if (currentRoute) {
-        const allStops = currentRoute.vehicle_routes.flatMap(vr => vr.stops);
+      if (currentRoute && currentRoute.trips.length > 0) {
+        const activeTrip = currentRoute.trips[0];
+        const allStops = activeTrip.vehicle_routes.flatMap(vr => vr.stops);
         mapRef.current?.fitBounds(allStops.map(stop => stop.coordinates), ZOOM_OFFSET);
       }
     }

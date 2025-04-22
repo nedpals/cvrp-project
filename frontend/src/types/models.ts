@@ -125,6 +125,18 @@ export interface VehicleRouteInfo {
     total_travel_time: number;      // Total travel time in seconds
 }
 
+export interface TripAnalysisResponse {
+    collection_day: number;
+    total_locations: number;
+    total_vehicles: number;
+    total_distance: number;
+    total_collected: number;
+    total_collection_time: number;
+    total_travel_time: number;
+    total_stops: number;
+    vehicle_routes: VehicleRouteInfo[];
+}
+
 export interface RouteResponse {
     schedule_id: string;
     schedule_name: string;
@@ -136,11 +148,11 @@ export interface RouteResponse {
     total_distance: number;
     total_collected: number;
     collection_day: number;
-    vehicle_routes: VehicleRouteInfo[];
     base_schedule_id: string;
     base_schedule_day: number;
     total_collection_time: number;  // Total collection time in seconds
     total_travel_time: number;      // Total travel time in seconds
+    trips: TripAnalysisResponse[];
 }
 
 export interface SolverInfo {
@@ -167,24 +179,31 @@ export interface ActiveTrip {
 }
 
 export const getActiveTripFromRouteInfo = (route: RouteResponse, tripNumber: number): ActiveTrip => {
-    const vehicleRoutes = route.vehicle_routes.map(vr => ({ ...vr, stops: vr.stops.filter(stop => stop.trip_number === tripNumber) }));
-    const stops = vehicleRoutes.flatMap(vr => vr.stops);
-    const totalStops = stops.length;
-    const totalDistance = stops.reduce((acc, stop) => acc + stop.distance_from_prev, 0);
-    const totalCollected = stops.reduce((acc, stop) => acc + stop.wco_amount, 0);
-    const totalCollectionTime = stops.reduce((acc, stop) => acc + stop.collection_time, 0);
-    const totalTravelTime = vehicleRoutes.reduce((acc, vr) => acc + vr.total_travel_time, 0);
+    const trip = route.trips.find((_, tN) => tN + 1 === tripNumber);
+    if (!trip) {
+        return {
+            schedule_id: route.schedule_id,
+            trip_number: tripNumber,
+            day: route.collection_day,
+            total_stops: 0,
+            total_distance: 0,
+            total_collected: 0,
+            total_collection_time: 0, 
+            total_travel_time: 0,
+            vehicle_routes: []
+        };
+    }
 
     return {
         schedule_id: route.schedule_id,
         trip_number: tripNumber,
-        day: route.collection_day - route.base_schedule_day,
-        total_stops: totalStops,
-        total_distance: totalDistance,
-        total_collected: totalCollected,
-        total_collection_time: totalCollectionTime,
-        total_travel_time: totalTravelTime,
-        vehicle_routes: vehicleRoutes,
+        day: route.collection_day,
+        total_stops: trip.total_stops,
+        total_distance: trip.total_distance,
+        total_collected: trip.total_collected,
+        total_collection_time: trip.total_collection_time,
+        total_travel_time: trip.total_travel_time,
+        vehicle_routes: trip.vehicle_routes
     };
 };
     

@@ -83,6 +83,7 @@ class VehicleRoute:
     initial_capacity: float = 0.0
     total_collected: float = 0.0
     collection_day: int = 1
+    speed_kph: float = AVERAGE_SPEED_KPH
 
 @dataclass
 class StopInfo:
@@ -185,6 +186,18 @@ class VehicleRouteInfo:
     trip_paths: Dict[int, List[RoutePathInfo]] = field(default_factory=dict)
 
 @dataclass
+class TripAnalysisResult:
+    collection_day: int
+    total_locations: int
+    total_vehicles: int
+    total_distance: float
+    total_collected: float
+    total_collection_time: int
+    total_travel_time: int
+    total_stops: int
+    vehicle_routes: List[VehicleRouteInfo]
+
+@dataclass
 class RouteAnalysisResult:
     schedule_id: str
     schedule_name: str
@@ -196,19 +209,35 @@ class RouteAnalysisResult:
     total_trips: int
     total_stops: int
     collection_day: int
-    vehicle_routes: List[VehicleRouteInfo]
+    trips: List[TripAnalysisResult]
     total_collection_time: int = 0  # Total collection time in seconds
     total_travel_time: int = 0      # Total travel time in seconds
     base_schedule_id: str = ""  # Add reference to original schedule
     base_schedule_day: int = 0  # Add reference to base frequency day
 
+    @property
+    def vehicle_routes(self) -> List[VehicleRouteInfo]:
+        """Compatibility property that returns vehicle routes from the current trip."""
+        if not self.trips:
+            return []
+        return [route for trip in self.trips for route in trip.vehicle_routes]
+
+    def get_trip(self, trip_number: int) -> Optional[TripAnalysisResult]:
+        """Get trip analysis result by trip number."""
+        return next((trip for trip in self.trips if trip.collection_day == trip_number), None)
+
+    def get_vehicle_routes(self, trip_number: int) -> List[VehicleRouteInfo]:
+        """Get vehicle routes for a specific trip number."""
+        trip = self.get_trip(trip_number)
+        return trip.vehicle_routes if trip else []
+
     def __post_init__(self):
         if self.total_trips == 0:
-            self.total_trips = sum(route.total_trips for route in self.vehicle_routes)
+            self.total_trips = sum(trip.total_trips for trip in self.trips)
         if self.total_stops == 0:
-            self.total_stops = sum(route.total_stops for route in self.vehicle_routes)
+            self.total_stops = sum(trip.total_stops for trip in self.trips)
         if not self.base_schedule_id:
-            self.base_schedule_id = self.schedule_id.split('_day')[0]  # Extract base ID from schedule_id
+            self.base_schedule_id = self.schedule_id.split('_day')[0]
         # Sum up total times
-        self.total_collection_time = sum(route.total_collection_time for route in self.vehicle_routes)
-        self.total_travel_time = sum(route.total_travel_time for route in self.vehicle_routes)
+        self.total_collection_time = sum(trip.total_collection_time for trip in self.trips)
+        self.total_travel_time = sum(trip.total_travel_time for trip in self.trips)
