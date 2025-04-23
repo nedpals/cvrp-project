@@ -124,7 +124,7 @@ class CollectionScheduler:
         missing = [loc for loc in locations if loc.id not in assigned_ids]
         return missing
 
-    def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None, force_assign: bool = False) -> List[List[Location]]:
+    def optimize_vehicle_assignments(self, vehicles: List[Vehicle], day: int, locations: List[Location] = None, force_assign: bool = False, use_geo_cluster: bool = True) -> List[List[Location]]:
         if not locations:
             return [[] for _ in vehicles]
             
@@ -138,24 +138,37 @@ class CollectionScheduler:
         
         collection_time = schedule.collection_time_minutes if schedule else 15.0
 
-        # Update clusterer with schedule-specific collection time
-        clusterer = GeographicClusterer(max_time_per_stop=collection_time, speed_kph=self.speed_kph)
+        # Skip clustering if use_geo_cluster is False
+        clusters = []
 
-        # First, cluster the locations geographically
-        clusters = clusterer.cluster_locations(locations, pure_geographic=True)
-        clusterer.print_cluster_analysis(clusters)
+        if use_geo_cluster:
+            # Update clusterer with schedule-specific collection time
+            clusterer = GeographicClusterer(max_time_per_stop=collection_time, speed_kph=self.speed_kph)
+            # First, cluster the locations geographically
+            clusters = clusterer.cluster_locations(locations, pure_geographic=True)
+            clusterer.print_cluster_analysis(clusters)
 
-        if len(vehicles) == 1 and len(clusters) > 1:
-            # Merge all clusters into one for single vehicle
+            if len(vehicles) == 1 and len(clusters) > 1:
+                # Merge all clusters into one for single vehicle
+                clusters = [GeographicCluster(
+                    id='A',
+                    locations=[loc for cluster in clusters for loc in cluster.locations],
+                    total_wco=sum(cluster.total_wco for cluster in clusters),
+                    center_lat=np.mean([loc.coordinates[0] for loc in locations]),
+                    center_lon=np.mean([loc.coordinates[1] for loc in locations]),
+                    total_time=sum(cluster.total_time for cluster in clusters)
+                )]
+                print(f"Single vehicle - merged {len(clusters)} clusters into one")
+        else:
+            # If not using geographic clustering, just use the locations as a single cluster
             clusters = [GeographicCluster(
                 id='A',
-                locations=[loc for cluster in clusters for loc in cluster.locations],
-                total_wco=sum(cluster.total_wco for cluster in clusters),
+                locations=locations,
+                total_wco=sum(loc.wco_amount for loc in locations),
                 center_lat=np.mean([loc.coordinates[0] for loc in locations]),
                 center_lon=np.mean([loc.coordinates[1] for loc in locations]),
-                total_time=sum(cluster.total_time for cluster in clusters)
+                total_time=sum(estimate_collection_time(loc, collection_time) for loc in locations)
             )]
-            print(f"Single vehicle - merged {len(clusters)} clusters into one")
         
         # Initialize assignments
         assignments = [[] for _ in vehicles]
@@ -163,7 +176,7 @@ class CollectionScheduler:
         vehicle_times = [0.0 for _ in vehicles]
         visited_locations: dict[str, int] = {}
         unassigned_locations = []
-        
+
         # Process each cluster
         for cluster in clusters:
             # Sort locations prioritizing geographic proximity over WCO amount

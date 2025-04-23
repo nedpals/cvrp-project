@@ -177,7 +177,8 @@ class CVRP:
                     vehicles=self.vehicles,
                     day=day,
                     locations=remaining_locations,
-                    force_assign=len(remaining_locations) <= minimum_force_threshold, # Force reassignment if all locations are left
+                    force_assign=len(remaining_locations) <= minimum_force_threshold,
+                    use_geo_cluster=True # Skip geo clustering for OR-Tools
                 )
 
                 total_initial_assignments_len = sum(len(locations) for locations in initial_assignments)
