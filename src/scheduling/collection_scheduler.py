@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple, Iterable
 from models.location import Location, Vehicle
 from models.shared_models import ScheduleEntry, AVERAGE_SPEED_KPH
 from models.location_registry import LocationRegistry
-from utils import calculate_distance, estimate_collection_time, MAX_DAILY_TIME
+from utils import calculate_distance, estimate_collection_time, MAX_DAILY_TIME, estimate_travel_time
 from clustering.geographic_clusterer import GeographicClusterer, GeographicCluster
 
 class CollectionScheduler:
@@ -205,7 +205,7 @@ class CollectionScheduler:
                         continue
                         
                     # Calculate time and load scores
-                    collection_time = estimate_collection_time(location, collection_time)
+                    c_time = estimate_collection_time(location, collection_time)
                     current_time = vehicle_times[v_idx]
                     
                     # Get distance and travel time factors
@@ -216,12 +216,24 @@ class CollectionScheduler:
                         distance_km = calculate_distance(vehicle.depot_location, location.coordinates)
 
                     travel_time = self._estimate_travel_time(distance_km)
-                    total_time = current_time + collection_time + travel_time
+
+                    if len(assignments[v_idx]) > 1:
+                        # Include estimated time to depot
+                        depot_distance_km = calculate_distance(location.coordinates, vehicle.depot_location)
+                        depot_travel_time = self._estimate_travel_time(depot_distance_km)
+                    else:
+                        depot_travel_time = 0.0
+
+                    # Calculate total time including depot travel
+                    total_time = current_time + c_time + travel_time + depot_travel_time
                     
                     if total_time > self.max_daily_time:
                         print(f"Vehicle {vehicle.id} reached daily time limit: {total_time:.1f} minutes > {self.max_daily_time} minutes")
                         # Go to next vehicle if daily time limit is exceeded
                         continue
+                    else:
+                        print(f"Location {location.name}, (Travel time: {travel_time:.1f} minutes, Collection time: {c_time:.1f} minutes)")
+                        print(f"Vehicle {vehicle.id} can still collect: {total_time:.1f} minutes < {self.max_daily_time} minutes")
                     
                     # Calculate assignment score with higher weight on distance
                     distance_factor = 1.0 / (1 + distance_km)
@@ -260,14 +272,27 @@ class CollectionScheduler:
                 
                 assigned = False
                 for v_idx, vehicle in enumerate(vehicles):
+                    # Get travel time if this would be added to route
+                    if assignments[v_idx]:
+                        last_loc = assignments[v_idx][-1]
+                        distance_km = calculate_distance(last_loc.coordinates, location.coordinates)
+                    else:
+                        distance_km = calculate_distance(vehicle.depot_location, location.coordinates)
+                    
+                    travel_time = self._estimate_travel_time(distance_km)
+                    c_time = estimate_collection_time(location, collection_time)
+                    depot_distance_km = calculate_distance(location.coordinates, vehicle.depot_location)
+                    depot_travel_time = self._estimate_travel_time(depot_distance_km)
+                    total_time = vehicle_times[v_idx] + c_time + travel_time + depot_travel_time
+
                     if (vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity and
-                        vehicle_times[v_idx] + estimate_collection_time(location) <= self.max_daily_time, collection_time):
+                        total_time <= self.max_daily_time):
                         assignments[v_idx].append(location)
                         vehicle_loads[v_idx] += location.wco_amount
-                        vehicle_times[v_idx] += estimate_collection_time(location, collection_time)
+                        vehicle_times[v_idx] = total_time
                         visited_locations[location.id] = v_idx
                         assigned = True
-                        print(f"Assigned {location.name} to Vehicle {vehicle.id}")
+                        print(f"Force assigned {location.name} to Vehicle {vehicle.id}")
                         break
                 
                 if not assigned:
@@ -338,4 +363,4 @@ class CollectionScheduler:
 
     def _estimate_travel_time(self, distance_km: float) -> float:
         """Estimate travel time in minutes based on average city speed"""
-        return (distance_km / self.speed_kph) * 60
+        return estimate_travel_time(distance_km, self.speed_kph)  # minutes

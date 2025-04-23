@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import List, Tuple, Dict, Optional, Any, Set
 from datetime import datetime
 from dataclasses import dataclass, field
+from utils import estimate_travel_time
 
 # Traffic Constants
 AVERAGE_SPEED_KPH = 30  # Average speed in Davao City
@@ -138,7 +139,8 @@ class CollectionData:
         
         # Use fixed collection time in seconds
         collection_time = int(self.collection_time_minutes * 60)  # Default to 15 minutes if no schedule specified
-        travel_time = int((distance_from_prev / self.speed_kph) * 3600)
+        travel_time_minutes = estimate_travel_time(distance_from_prev, self.speed_kph)  # Use estimated travel time
+        travel_time = int(travel_time_minutes * 60) # Convert to seconds
         
         # Create new stop
         new_stop = CollectionStop(

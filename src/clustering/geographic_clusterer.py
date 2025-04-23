@@ -4,7 +4,7 @@ from models.location import Location
 from models.shared_models import AVERAGE_SPEED_KPH
 import numpy as np
 from sklearn.cluster import KMeans
-from utils import estimate_collection_time
+from utils import estimate_collection_time, estimate_travel_time
 
 @dataclass
 class GeographicCluster:
@@ -127,7 +127,7 @@ class GeographicClusterer:
             
             # Add traffic-based penalty
             avg_distance_km = np.mean(distances) if distances else 0
-            travel_time = (avg_distance_km / self.speed_kph) * 60  # minutes
+            travel_time = estimate_travel_time(avg_distance_km, self.speed_kph)  # minutes
             traffic_penalty = travel_time / 60  # Penalize longer travel times
             
             score += capacity_penalty + time_penalty + cohesion_penalty + traffic_penalty

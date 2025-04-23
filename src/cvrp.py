@@ -10,7 +10,7 @@ from scheduling.collection_scheduler import CollectionScheduler
 from utils import calculate_distance
 from datetime import datetime
 
-from utils import MAX_DAILY_TIME
+from utils import MAX_DAILY_TIME, estimate_travel_time
 
 class CVRP:
     def __init__(self, vehicles: List[Vehicle], solver_class: BaseSolver, constraints: RouteConstraints | None = None, allow_multiple_trips: bool = True, max_daily_time: int = MAX_DAILY_TIME):
@@ -31,7 +31,7 @@ class CVRP:
         
         return locations
 
-    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]], stop_time = 15, speed_kph = AVERAGE_SPEED_KPH, max_daily_time = MAX_DAILY_TIME) -> List[List[Location]]:
+    def optimize_routes(self, vehicle_assignments: List[List[LocationRegistry]], stop_time = 15, speed_kph = AVERAGE_SPEED_KPH) -> List[List[Location]]:
         """Optimize routes using solver after scheduler assignments"""
         if not self.solver_class:
             return vehicle_assignments
@@ -122,7 +122,7 @@ class CVRP:
         """
         # Initialize location registry for new schedule group
         location_registry = self._initialize_location_registry(locations)
-        collection_tracker = TripCollection(speed_kph=speed_kph)
+        collection_tracker = TripCollection(speed_kph=speed_kph, max_daily_time=self.max_daily_time)
         results: List[RouteAnalysisResult] = []
 
         # Initialize scheduler once for all schedules
@@ -268,8 +268,6 @@ class CVRP:
                             # Presumed depot start or end
                             continue
 
-                        location_assignments[location.id] = day
-
                         # Register collection with tracker
                         success = collection_tracker.register_collection(
                             vehicle_id=vehicle.id,
@@ -279,10 +277,14 @@ class CVRP:
                             depot_location=vehicle.depot_location,
                             collection_time_minutes=schedule.collection_time_minutes
                         )
-                        
-                        if success:
-                            current_load += location.wco_amount
 
+                        if not success and len(assigned_locations) > 1:
+                            continue
+
+                        # Check if the location is already processed
+                        location_assignments[location.id] = day
+                        # Update current load
+                        current_load += location.wco_amount
                         # Track processed locations
                         processed_location_ids.add(location.id)
 
@@ -292,6 +294,10 @@ class CVRP:
                     print(f"Remaining locations for day {day}: {len(remaining_locations)}")
                     for loc in remaining_locations:
                         print(f"  - {loc.name} (ID: {loc.id})")
+
+                if collection_tracker.exceeds_daily_time(day):
+                    print(f"WARNING: Daily time exceeded for day {day}. Clearing the total time.")
+                    collection_tracker.clear_total_time(day)
 
             # Detailed verification of locations
             missing_locations = []
@@ -538,7 +544,7 @@ class CVRP:
                     sequence_number=i,
                     collection_day=day,
                     collection_time=0,
-                    travel_time=int((depot_end_distance / route.speed_kph) * 3600)
+                    travel_time=int(estimate_travel_time(depot_end_distance, route.speed_kph) * 60)
                 )
 
                 stops_data.append(depot_end)

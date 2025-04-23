@@ -2,15 +2,38 @@ from models.shared_models import CollectionData, VehicleRoute, Location, AVERAGE
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, Set
 from datetime import datetime
-from utils import calculate_distance
+from utils import calculate_distance, MAX_DAILY_TIME, estimate_travel_time
 
 @dataclass
 class TripCollection:
     """Tracks collections for specific vehicles on specific days and trips"""
     vehicle_collections: Dict[Tuple[int, int, int], CollectionData] = field(default_factory=dict)
+    total_times: Dict[int, float] = field(default_factory=dict)
+    _exceeds_daily_time: Dict[int, bool] = field(default_factory=dict)
     total_trips: int = 0
     total_stops: int = 0
     speed_kph: float = AVERAGE_SPEED_KPH
+    max_daily_time: int = MAX_DAILY_TIME
+
+    def exceeds_daily_time(self, day: int) -> bool:
+        """
+        Check if the total time for a given day exceeds the maximum daily time
+        """
+        if day in self._exceeds_daily_time:
+            return self._exceeds_daily_time[day]
+        
+        # If not calculated, assume it does not exceed
+        return False
+    
+    def clear_total_time(self, day: int) -> None:
+        """
+        Clear the total time for a specific day
+        """
+        if day in self.total_times:
+            self.total_times[day] = 0.0
+
+        if day in self._exceeds_daily_time:
+            self._exceeds_daily_time[day] = False
     
     def register_collection(self, 
                            vehicle_id: int,
@@ -24,6 +47,11 @@ class TripCollection:
         Returns True if successfully registered, False otherwise
         """
         key = (vehicle_id, day, trip_number)
+        time_key = day
+
+        if self.exceeds_daily_time(day):
+            print(f"Warning: Daily time limit exceeded for day {day}. Cannot register new collection.")
+            return False
         
         # Track new trips
         if key not in self.vehicle_collections:
@@ -43,26 +71,49 @@ class TripCollection:
                 collection_time_minutes=collection_time_minutes,
                 speed_kph=self.speed_kph
             )
+
+        if time_key not in self.total_times:
+            self.total_times[time_key] = 0.0
         
         # Check if location already visited on this day
         if location.id in self.vehicle_collections[key].visited_location_ids:
             print(f"Warning: Location {location.name} already visited on day {day} by vehicle {vehicle_id}. Ignoring duplicate.")
             return False
+        
+        is_depot_location = location.coordinates[0] == depot_location[0] and location.coordinates[1] == depot_location[1] if depot_location else False
             
         # Calculate distance from previous stop or depot
         collection = self.vehicle_collections[key]
         if not collection.stops:
-            if depot_location:
+            if depot_location and not is_depot_location:
                 distance = calculate_distance(depot_location, location.coordinates)
             else:
                 distance = 0.0
         else:
             prev_stop = collection.stops[-1]
             distance = calculate_distance(prev_stop.coordinates, location.coordinates)
-            
+
+        # Check if adding this stop exceeds daily time limit (in minutes)
+        prev_total_time = self.total_times.get(time_key, 0.0)
+        travel_time = estimate_travel_time(distance, self.speed_kph)
+        total_time = prev_total_time + travel_time + collection.collection_time_minutes
+
+        # If location is not depot, include travel time to depot
+        if not is_depot_location:
+            depot_travel_time = estimate_travel_time(calculate_distance(location.coordinates, depot_location), self.speed_kph) if depot_location else 0
+            total_time += depot_travel_time
+
+        if total_time > self.max_daily_time:
+            print(f"Warning: Adding {location.name} exceeds daily time limit for day {day} (total_time: {total_time}, max_daily_time: {self.max_daily_time}). Ignoring this stop.")
+            self._exceeds_daily_time[day] = True
+            return False
+        else:
+            print(f"[trip_collection] total_time: {total_time}, max_daily_time: {self.max_daily_time}")
+
         # Register collection with distance
         collection.add_stop(location, distance)
         self.total_stops += 1
+        self.total_times[time_key] = total_time
         print(f"Collecting {location.str()} (Total trips: {self.total_trips}, Total stops: {self.total_stops})")
         return True
         

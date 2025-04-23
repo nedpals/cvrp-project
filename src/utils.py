@@ -21,3 +21,7 @@ def estimate_collection_time(location, max_stop_time: float = 15.0) -> float:
     # base_time = 3 + (location.wco_amount / 100) * 4  # Base 3 mins + up to 4 more based on volume
     # return min(max_stop_time, base_time)
     return max_stop_time
+
+def estimate_travel_time(distance: float, speed_kph: float) -> float:
+    """Estimate travel time based on distance and speed in minutes"""
+    return (distance / speed_kph) * 60  # Convert to minutes

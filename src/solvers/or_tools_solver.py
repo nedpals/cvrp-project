@@ -4,7 +4,7 @@ from models.location import Location, Vehicle, RouteConstraints
 from models.shared_models import AVERAGE_SPEED_KPH
 from .base_solver import BaseSolver
 from typing import List
-from utils import MAX_DAILY_TIME
+from utils import MAX_DAILY_TIME, estimate_travel_time
 
 import traceback
 
@@ -96,7 +96,7 @@ class ORToolsSolver(BaseSolver):
                     self.locations[to_node].coordinates
                 )
                 
-                travel_time = round(distance / self.speed_kph * 60)  # Round to nearest minute
+                travel_time = round(estimate_travel_time(distance, self.speed_kph))  # Round to nearest minute
                 return int(travel_time + service_time)  # Ensure integer return
             except Exception as e:
                 print(f"Error in time_callback: {str(e)}")
