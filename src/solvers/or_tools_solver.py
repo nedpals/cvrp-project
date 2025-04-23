@@ -164,7 +164,7 @@ class ORToolsSolver(BaseSolver):
         )
         
         # Enable parallel search
-        search_parameters.time_limit.seconds = 3
+        search_parameters.time_limit.seconds = 10
         search_parameters.log_search = False
 
         # Process solution with better error handling
