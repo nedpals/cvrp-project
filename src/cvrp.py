@@ -278,13 +278,16 @@ class CVRP:
                             collection_time_minutes=schedule.collection_time_minutes
                         )
 
-                        if not success and len(assigned_locations) > 1:
-                            continue
+                        should_collect_load = success
+
+                        # if not success and len(assigned_locations) > 1:
+                        #     continue
 
                         # Check if the location is already processed
                         location_assignments[location.id] = day
-                        # Update current load
-                        current_load += location.wco_amount
+                        if should_collect_load:
+                            # Update current load
+                            current_load += location.wco_amount
                         # Track processed locations
                         processed_location_ids.add(location.id)
 

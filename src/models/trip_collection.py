@@ -107,15 +107,15 @@ class TripCollection:
 
         if total_time > self.max_daily_time:
             print(f"Warning: Adding {location.name} exceeds daily time limit for day {day}")
-            self._exceeds_daily_time[day] = True
-            return False
+            # self._exceeds_daily_time[day] = True
+            # return False
         else:
             print(f"[trip_collection] total_time: {total_time}, max_daily_time: {self.max_daily_time}")
 
         # Register collection with distance
         collection.add_stop(location, distance)
         self.total_stops += 1
-        self.total_times[time_key] = total_time
+        # self.total_times[time_key] = total_time
         print(f"Collecting {location.str()} (Total trips: {self.total_trips}, Total stops: {self.total_stops})")
         return True
         

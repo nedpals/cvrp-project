@@ -60,9 +60,9 @@ def calculate_stop_times(location,
         
     # Time to return to depot
     depot_return_time = 0.0
-    if depot_location:
-        depot_distance = calculate_distance(location.coordinates, depot_location)
-        depot_return_time = estimate_travel_time(depot_distance, speed_kph)
+    # if depot_location:
+    #     depot_distance = calculate_distance(location.coordinates, depot_location)
+    #     depot_return_time = estimate_travel_time(depot_distance, speed_kph)
         
     return collection_time, travel_time, depot_return_time
 

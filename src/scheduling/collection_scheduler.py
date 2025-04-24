@@ -225,9 +225,9 @@ class CollectionScheduler:
                     # 
                     # Regardless of the absence or presence of this if check below,
                     # this does not affect the assignment of locations to vehicles.
-                    # if total_time > self.max_daily_time:
-                    #     print(f"Vehicle {vehicle.id} reached daily time limit")
-                    #     continue
+                    if total_time > self.max_daily_time:
+                        print(f"Vehicle {vehicle.id} reached daily time limit")
+                        continue
 
                     # Calculate assignment score with higher weight on distance
                     distance_km = calculate_distance(
@@ -283,8 +283,7 @@ class CollectionScheduler:
                         c_time, travel_time, depot_return_time
                     )
                     
-                    if (vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity and
-                        total_time <= self.max_daily_time):
+                    if vehicle_loads[v_idx] + location.wco_amount <= vehicle.capacity:
                         assignments[v_idx].append(location)
                         vehicle_loads[v_idx] += location.wco_amount
                         vehicle_times[v_idx] = total_time
