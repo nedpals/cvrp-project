@@ -107,7 +107,7 @@ class TripCollection:
 
         if total_time > self.max_daily_time:
             print(f"Warning: Adding {location.name} exceeds daily time limit for day {day}")
-            # self._exceeds_daily_time[day] = True
+            self._exceeds_daily_time[day] = False
             # return False
         else:
             print(f"[trip_collection] total_time: {total_time}, max_daily_time: {self.max_daily_time}")
