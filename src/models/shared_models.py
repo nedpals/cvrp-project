@@ -1,11 +1,8 @@
 from pydantic import BaseModel
-from typing import List, Tuple, Dict, Optional, Any, Set
+from typing import List, Tuple, Dict, Optional, Set
 from datetime import datetime
 from dataclasses import dataclass, field
-from utils import estimate_travel_time
-
-# Traffic Constants
-AVERAGE_SPEED_KPH = 30  # Average speed in Davao City
+from utils import calculate_stop_times, AVERAGE_SPEED_KPH
 
 class RouteConstraints(BaseModel):
     one_way_roads: List[Tuple[Tuple[float, float], Tuple[float, float]]] = []
@@ -137,10 +134,13 @@ class CollectionData:
         # Calculate cumulative load
         current_load = sum(stop.amount_collected for stop in self.stops)
         
-        # Use fixed collection time in seconds
-        collection_time = int(self.collection_time_minutes * 60)  # Default to 15 minutes if no schedule specified
-        travel_time_minutes = estimate_travel_time(distance_from_prev, self.speed_kph)  # Use estimated travel time
-        travel_time = int(travel_time_minutes * 60) # Convert to seconds
+        # Calculate times using utility function with pre-calculated distance
+        collection_time, travel_time, _ = calculate_stop_times(
+            location=location,
+            collection_time_minutes=self.collection_time_minutes,
+            speed_kph=self.speed_kph,
+            distance_from_prev=distance_from_prev
+        )
         
         # Create new stop
         new_stop = CollectionStop(
@@ -153,8 +153,8 @@ class CollectionData:
             distance_from_prev=distance_from_prev,
             trip_number=self.trip_number,
             collection_day=self.day,
-            collection_time=collection_time,
-            travel_time=travel_time
+            collection_time=int(collection_time * 60),  # Convert to seconds
+            travel_time=int(travel_time * 60)  # Convert to seconds
         )
         
         # Update collection data

@@ -1,8 +1,8 @@
-from models.shared_models import CollectionData, VehicleRoute, Location, AVERAGE_SPEED_KPH
+from models.shared_models import CollectionData, VehicleRoute, Location
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, Set
 from datetime import datetime
-from utils import calculate_distance, MAX_DAILY_TIME, estimate_travel_time
+from utils import calculate_distance, MAX_DAILY_TIME, AVERAGE_SPEED_KPH, calculate_stop_times, calculate_total_time
 
 @dataclass
 class TripCollection:
@@ -93,18 +93,20 @@ class TripCollection:
             prev_stop = collection.stops[-1]
             distance = calculate_distance(prev_stop.coordinates, location.coordinates)
 
-        # Check if adding this stop exceeds daily time limit (in minutes)
-        prev_total_time = self.total_times.get(time_key, 0.0)
-        travel_time = estimate_travel_time(distance, self.speed_kph)
-        total_time = prev_total_time + travel_time + collection.collection_time_minutes
+        prev_location = collection.stops[-1].coordinates if collection.stops else None
+        collection_time, travel_time, depot_return_time = calculate_stop_times(
+            location=location,
+            depot_location=depot_location,
+            prev_location=prev_location,
+            collection_time_minutes=collection_time_minutes,
+            speed_kph=self.speed_kph
+        )
 
-        # If location is not depot, include travel time to depot
-        if not is_depot_location:
-            depot_travel_time = estimate_travel_time(calculate_distance(location.coordinates, depot_location), self.speed_kph) if depot_location else 0
-            total_time += depot_travel_time
+        prev_total_time = self.total_times.get(time_key, 0.0)
+        total_time = prev_total_time + calculate_total_time(collection_time, travel_time, depot_return_time)
 
         if total_time > self.max_daily_time:
-            print(f"Warning: Adding {location.name} exceeds daily time limit for day {day} (total_time: {total_time}, max_daily_time: {self.max_daily_time}). Ignoring this stop.")
+            print(f"Warning: Adding {location.name} exceeds daily time limit for day {day}")
             self._exceeds_daily_time[day] = True
             return False
         else:

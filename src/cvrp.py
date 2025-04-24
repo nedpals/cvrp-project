@@ -1,13 +1,13 @@
 from typing import List, Set, Tuple, Iterable, Dict
 from models.location import Vehicle, RouteConstraints, VehicleRoute
-from models.shared_models import ScheduleEntry, Location, AVERAGE_SPEED_KPH, TripAnalysisResult
+from models.shared_models import ScheduleEntry, Location, TripAnalysisResult
 from models.trip_collection import TripCollection, CollectionData
 from models.location_registry import LocationRegistry
 from models.route_data import RouteAnalysisResult, VehicleRouteInfo, StopInfo
 from solvers.base_solver import BaseSolver
 from solvers.or_tools_solver import ORToolsSolver
 from scheduling.collection_scheduler import CollectionScheduler
-from utils import calculate_distance
+from utils import calculate_distance, AVERAGE_SPEED_KPH
 from datetime import datetime
 
 from utils import MAX_DAILY_TIME, estimate_travel_time

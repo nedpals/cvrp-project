@@ -1,10 +1,9 @@
 from typing import List, Dict
 from dataclasses import dataclass
 from models.location import Location
-from models.shared_models import AVERAGE_SPEED_KPH
 import numpy as np
 from sklearn.cluster import KMeans
-from utils import estimate_collection_time, estimate_travel_time
+from utils import AVERAGE_SPEED_KPH, estimate_collection_time, estimate_travel_time
 
 @dataclass
 class GeographicCluster:

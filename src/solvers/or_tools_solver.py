@@ -1,10 +1,9 @@
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from ortools.constraint_solver.pywrapcp import RoutingIndexManager, RoutingModel
 from models.location import Location, Vehicle, RouteConstraints
-from models.shared_models import AVERAGE_SPEED_KPH
 from .base_solver import BaseSolver
 from typing import List
-from utils import MAX_DAILY_TIME, estimate_travel_time
+from utils import MAX_DAILY_TIME, AVERAGE_SPEED_KPH, estimate_travel_time
 
 import traceback
 
