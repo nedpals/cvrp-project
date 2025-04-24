@@ -645,13 +645,10 @@ export default function ResultsCard({
                                         {stop.wco_amount}L
                                       </div>
                                     ) : null}
-                                    {!isDepotStart && !isDepotEnd && (
-                                      <div className="flex items-center gap-1.5 text-gray-500">
-                                        <span>{formatDuration(stop.travel_time || 0)} travel</span>
-                                        <span>•</span>
-                                        <span>{formatDuration(stop.collection_time || 0)} collect</span>
-                                      </div>
-                                    )}
+                                    <div className="flex items-center gap-1.5 text-gray-500">
+                                      <span>{formatDuration(stop.travel_time || 0)} travel</span>
+                                      {!isDepotStart && !isDepotEnd && (<span>• {formatDuration(stop.collection_time || 0)} collect</span>)}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
